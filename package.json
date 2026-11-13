@@ -4,6 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
+    "@react-three/drei": "^9.99.0",
+    "@react-three/fiber": "^8.15.16",
     "axios": "^1.6.0",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.2",
@@ -14,7 +16,8 @@
     "prop-types": "^15.8.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-leaflet": "^4.2.1"
+    "react-leaflet": "^4.2.1",
+    "three": "^0.161.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.0",
