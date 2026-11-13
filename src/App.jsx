@@ -2,10 +2,13 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { MapContainer, TileLayer, FeatureGroup } from 'react-leaflet';
 import { EditControl } from 'marwan-yasser-react-leaflet-draw';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const API_URL = "https://sheet-set-backend.onrender.com"; 
 
 function App() {
+  // App State
   const [pitch, setPitch] = useState(30);
   const [width, setWidth] = useState(760);
   const [loading, setLoading] = useState(false);
@@ -13,11 +16,27 @@ function App() {
   const [error, setError] = useState(null);
   const [drawnCoords, setDrawnCoords] = useState(null);
   const [exteriorMeters, setExteriorMeters] = useState(null);
-  
-  // Default center (Sydney), will override with geolocation
   const [mapCenter, setMapCenter] = useState([-33.8688, 151.2093]);
+  
+  // View State
+  const [showSettings, setShowSettings] = useState(false);
+  
+  // Business Settings State (Loaded from LocalStorage)
+  const [settings, setSettings] = useState({
+    companyName: "Acme Roofing",
+    abn: "12 345 678 901",
+    phone: "0400 000 000",
+    metalCostPerMeter: 15.00,
+    laborRatePerSheet: 45.00
+  });
 
+  // Load settings on mount
   useEffect(() => {
+    const saved = localStorage.getItem('sheetSetSettings');
+    if (saved) {
+      setSettings(JSON.parse(saved));
+    }
+    
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition((position) => {
         setMapCenter([position.coords.latitude, position.coords.longitude]);
@@ -25,9 +44,19 @@ function App() {
     }
   }, []);
 
+  const saveSettings = (e) => {
+    e.preventDefault();
+    localStorage.setItem('sheetSetSettings', JSON.stringify(settings));
+    setShowSettings(false);
+  };
+
+  const handleSettingChange = (e) => {
+    setSettings({ ...settings, [e.target.name]: e.target.value });
+  };
+
   const latLngToMeters = (latLngs) => {
     const origin = latLngs[0];
-    const R = 6371000; // Earth radius in meters
+    const R = 6371000; 
     return latLngs.map((ll, index) => {
       const dLat = (ll.lat - origin.lat) * Math.PI / 180;
       const dLng = (ll.lng - origin.lng) * Math.PI / 180;
@@ -94,7 +123,66 @@ function App() {
     document.body.removeChild(a);
   };
 
-  // Calculate SVG bounds dynamically
+  const generateInvoice = () => {
+    if (!result) return;
+
+    // Parse the summary text from the backend to extract numbers
+    const totalSheetsMatch = result.summary.match(/Total Sheets: (\d+)/);
+    const totalMetersMatch = result.summary.match(/Linear Meters Ordered: ([\d.]+)/);
+    
+    const totalSheets = totalSheetsMatch ? parseInt(totalSheetsMatch[1]) : 0;
+    const totalMeters = totalMetersMatch ? parseFloat(totalMetersMatch[1]) : 0;
+
+    // Calculate costs based on user settings
+    const materialCost = totalMeters * parseFloat(settings.metalCostPerMeter);
+    const laborCost = totalSheets * parseFloat(settings.laborRatePerSheet);
+    const totalCost = materialCost + laborCost;
+
+    // Generate PDF
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(22);
+    doc.text(settings.companyName, 14, 20);
+    doc.setFontSize(10);
+    doc.text(`ABN: ${settings.abn}`, 14, 28);
+    doc.text(`Phone: ${settings.phone}`, 14, 33);
+    
+    doc.setFontSize(18);
+    doc.text("INVOICE", 150, 20);
+    doc.setFontSize(10);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 150, 28);
+    
+    // Bill To (Placeholder for now, can be wired to map later)
+    doc.setFontSize(12);
+    doc.text("Job Location:", 14, 50);
+    doc.setFontSize(10);
+    doc.text("Lat/Lng from Map", 14, 56); // We can save the exact address later
+
+    // Table of Quantities
+    doc.autoTable({
+      startY: 70,
+      head: [['Description', 'Qty', 'Unit Rate', 'Total']],
+      body: [
+        ['Metal Sheets (Cut & Packed)', `${totalSheets} sheets`, '-', '-'],
+        ['Metal Coil Required', `${totalMeters.toFixed(2)} m`, `$${parseFloat(settings.metalCostPerMeter).toFixed(2)}/m`, `$${materialCost.toFixed(2)}`],
+        ['Installation Labor', `${totalSheets} sheets`, `$${parseFloat(settings.laborRatePerSheet).toFixed(2)}/sheet`, `$${laborCost.toFixed(2)}`]
+      ],
+      theme: 'grid',
+      styles: { fontSize: 10 },
+      headStyles: { fillColor: [0, 123, 255] }
+    });
+
+    // Total
+    const finalY = doc.lastAutoTable.finalY || 100;
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Total Due: $${totalCost.toFixed(2)}`, 14, finalY + 20);
+
+    // Save
+    doc.save(`Invoice_${new Date().getTime()}.pdf`);
+  };
+
   let svgViewBox = "0 0 100 100";
   if (exteriorMeters && exteriorMeters.length > 0) {
     const xs = exteriorMeters.map(p => p[0]);
@@ -108,80 +196,106 @@ function App() {
 
   return (
     <div className="container">
-      <header>
-        <h1>📐 Sheet Set</h1>
-        <p>Trace a roof to generate a cut list</p>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h1>📐 Sheet Set</h1>
+          <p>{showSettings ? "Business Settings" : "Trace a roof to generate a cut list"}</p>
+        </div>
+        <button 
+          onClick={() => setShowSettings(!showSettings)}
+          style={{ background: '#6c757d', padding: '8px 12px', fontSize: '14px', width: 'auto' }}
+        >
+          {showSettings ? "Back to Calculator" : "⚙️ Settings"}
+        </button>
       </header>
 
-      <div className="map-wrapper" style={{ height: '350px', width: '100%', marginBottom: '20px' }}>
-        <MapContainer center={mapCenter} zoom={18} style={{ height: '100%', width: '100%' }}>
-          <TileLayer
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-            attribution='Tiles &copy; Esri'
-          />
-          <FeatureGroup>
-            <EditControl
-              position="topright"
-              onCreated={onCreated}
-              onEdited={onEdited}
-              onDeleted={onDeleted}
-              draw={{
-                rectangle: false, circle: false, circlemarker: false,
-                polyline: false, marker: false,
-                polygon: {
-                  allowIntersection: false,
-                  shapeOptions: { color: '#007bff' }
-                }
-              }}
-            />
-          </FeatureGroup>
-        </MapContainer>
-      </div>
-
-      <div className="controls">
-        <div className="input-group">
-          <label>Pitch: {pitch}°</label>
-          <input type="range" min="10" max="60" value={pitch} onChange={(e) => setPitch(e.target.value)} />
-        </div>
-        <div className="input-group">
-          <label>Sheet Width: {width}mm</label>
-          <input type="range" min="500" max="1000" value={width} onChange={(e) => setWidth(e.target.value)} />
-        </div>
-        <button onClick={calculateRoof} disabled={loading || !drawnCoords}>
-          {loading ? "Calculating..." : "Calculate Roof"}
-        </button>
-        {!drawnCoords && <p style={{fontSize: '12px', color: 'gray', textAlign: 'center'}}>Use the polygon tool (top right of map) to trace the roof.</p>}
-      </div>
-
-      {error && <div className="error">{error}</div>}
-
-      {result && exteriorMeters && (
-        <div className="results">
-          <div className="stats">
-            <h3>Order Summary</h3>
-            <pre>{result.summary}</pre>
-            <button onClick={downloadCSV} className="download-btn">📥 Download Machine CSV</button>
+      {showSettings ? (
+        <form onSubmit={saveSettings} className="settings-form">
+          <div className="input-group">
+            <label>Company Name</label>
+            <input type="text" name="companyName" value={settings.companyName} onChange={handleSettingChange} required />
           </div>
-          
-          <div className="visualizer">
-            <h3>Shop Drawing</h3>
-            <svg viewBox={svgViewBox} width="100%" height="auto" style={{background: '#f8f9fa', border: '1px solid #ccc'}}>
-              {/* The actual building footprint */}
-              <polygon 
-                points={exteriorMeters.map(p => `${p[0]},${p[1]}`).join(' ')} 
-                fill="none" stroke="black" strokeWidth="0.2" 
+          <div className="input-group">
+            <label>ABN</label>
+            <input type="text" name="abn" value={settings.abn} onChange={handleSettingChange} />
+          </div>
+          <div className="input-group">
+            <label>Phone</label>
+            <input type="text" name="phone" value={settings.phone} onChange={handleSettingChange} />
+          </div>
+          <div className="input-group">
+            <label>Metal Cost per Meter ($)</label>
+            <input type="number" step="0.01" name="metalCostPerMeter" value={settings.metalCostPerMeter} onChange={handleSettingChange} required />
+          </div>
+          <div className="input-group">
+            <label>Labor Rate per Sheet ($)</label>
+            <input type="number" step="0.01" name="laborRatePerSheet" value={settings.laborRatePerSheet} onChange={handleSettingChange} required />
+          </div>
+          <button type="submit" style={{ marginTop: '10px' }}>Save Settings</button>
+        </form>
+      ) : (
+        <>
+          <div className="map-wrapper" style={{ height: '350px', width: '100%', marginBottom: '20px' }}>
+            <MapContainer center={mapCenter} zoom={18} style={{ height: '100%', width: '100%' }}>
+              <TileLayer
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                attribution='Tiles &copy; Esri'
               />
-              {/* The sheets */}
-              {result.sheets.map((sheet, i) => (
-                <line 
-                  key={i} x1={sheet.start[0]} y1={sheet.start[1]} 
-                  x2={sheet.end[0]} y2={sheet.end[1]} 
-                  stroke="red" strokeWidth="0.1" opacity="0.6"
+              <FeatureGroup>
+                <EditControl
+                  position="topright"
+                  onCreated={onCreated}
+                  onEdited={onEdited}
+                  onDeleted={onDeleted}
+                  draw={{
+                    rectangle: false, circle: false, circlemarker: false,
+                    polyline: false, marker: false,
+                    polygon: { allowIntersection: false, shapeOptions: { color: '#007bff' } }
+                  }}
                 />
-              ))}
-            </svg>
+              </FeatureGroup>
+            </MapContainer>
           </div>
-        </div>
+
+          <div className="controls">
+            <div className="input-group">
+              <label>Pitch: {pitch}°</label>
+              <input type="range" min="10" max="60" value={pitch} onChange={(e) => setPitch(e.target.value)} />
+            </div>
+            <div className="input-group">
+              <label>Sheet Width: {width}mm</label>
+              <input type="range" min="500" max="1000" value={width} onChange={(e) => setWidth(e.target.value)} />
+            </div>
+            <button onClick={calculateRoof} disabled={loading || !drawnCoords}>
+              {loading ? "Calculating..." : "Calculate Roof"}
+            </button>
+          </div>
+
+          {error && <div className="error">{error}</div>}
+
+          {result && exteriorMeters && (
+            <div className="results">
+              <div className="stats">
+                <h3>Order Summary</h3>
+                <pre>{result.summary}</pre>
+                <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                  <button onClick={downloadCSV} className="download-btn" style={{ flex: 1 }}>📥 Download CSV</button>
+                  <button onClick={generateInvoice} className="download-btn" style={{ flex: 1, background: '#17a2b8' }}>🧾 Generate Invoice</button>
+                </div>
+              </div>
+              
+              <div className="visualizer">
+                <h3>Shop Drawing</h3>
+                <svg viewBox={svgViewBox} width="100%" height="auto" style={{background: '#f8f9fa', border: '1px solid #ccc'}}>
+                  <polygon points={exteriorMeters.map(p => `${p[0]},${p[1]}`).join(' ')} fill="none" stroke="black" strokeWidth="0.2" />
+                  {result.sheets.map((sheet, i) => (
+                    <line key={i} x1={sheet.start[0]} y1={sheet.start[1]} x2={sheet.end[0]} y2={sheet.end[1]} stroke="red" strokeWidth="0.1" opacity="0.6" />
+                  ))}
+                </svg>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
