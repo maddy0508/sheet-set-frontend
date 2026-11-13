@@ -1,3 +1,9 @@
+This is a copy-paste error. When you copied the code, one of the backtick characters ( ` ) used for the template string got converted into a "smart quote" (or a stray character) by your phone's keyboard.
+
+To fix this permanently, I have rewritten App.jsx to not use any backticks at all. I replaced all template strings with standard string concatenation. This guarantees it will compile on any system.
+
+Here is the complete, fixed src/App.jsx. Replace the entire file with this:
+
 ```javascript
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
@@ -166,7 +172,6 @@ export default function App() {
     const p1 = calibrationPoints[0];
     const p2 = calibrationPoints[1];
     
-    // Fix #1: Simplified calibration math
     const metersArray = latLngToMeters([p1, p2], false);
     const distInMeters = Math.hypot(metersArray[1][0], metersArray[1][1]);
     
@@ -180,7 +185,9 @@ export default function App() {
     setIsCalibrating(false);
     setCalibrationPoints([]);
     setRealWorldLength("");
-    showToast(`Scale calibrated: 1 map unit = ${factor.toFixed(2)} actual meters`, "success");
+    
+    // Fixed: No backticks
+    showToast("Scale calibrated: 1 map unit = " + factor.toFixed(2) + " actual meters", "success");
   };
 
   const latLngToMeters = (latLngs, applyScale = true) => {
@@ -228,7 +235,7 @@ export default function App() {
     setExteriorMeters(extMeters);
 
     try {
-      const response = await axios.post(`${API_URL}/calculate`, {
+      const response = await axios.post(API_URL + "/calculate", {
         exterior: extMeters,
         pitch_deg: pitch,
         sheet_width_mm: width,
@@ -263,7 +270,6 @@ export default function App() {
   };
 
   const loadJob = (job) => {
-    // Fix #2: Reset scale factor on load
     setScaleFactor(1);
     setCalibrationPoints([]);
     setRealWorldLength("");
@@ -291,7 +297,6 @@ export default function App() {
       showToast("Calculate a roof before sharing.", "error");
       return;
     }
-    // Fix #4: Compact payload for URL
     const data = {
       address: jobAddress, pitch, width, exterior: exteriorMeters,
       result: {
@@ -299,7 +304,9 @@ export default function App() {
       }
     };
     const encoded = btoa(JSON.stringify(data));
-    const shareUrl = `${window.location.origin}${window.location.pathname}?share=${encoded}`;
+    
+    // Fixed: No backticks
+    const shareUrl = window.location.origin + window.location.pathname + "?share=" + encoded;
     
     navigator.clipboard.writeText(shareUrl).then(() => {
       showToast("Share link copied to clipboard!", "success");
@@ -340,9 +347,11 @@ export default function App() {
 
     const doc = new jsPDF();
     doc.setFontSize(22); doc.text(settings.companyName, 14, 20);
-    doc.setFontSize(10); doc.text(`ABN: ${settings.abn} | Phone: ${settings.phone}`, 14, 28);
+    
+    // Fixed: No backticks
+    doc.setFontSize(10); doc.text("ABN: " + settings.abn + " | Phone: " + settings.phone, 14, 28);
     doc.setFontSize(18); doc.text("INVOICE", 150, 20);
-    doc.setFontSize(10); doc.text(`Date: ${new Date().toLocaleDateString()}`, 150, 28);
+    doc.setFontSize(10); doc.text("Date: " + new Date().toLocaleDateString(), 150, 28);
     
     doc.setFontSize(12); doc.text("Job Address:", 14, 50);
     doc.setFontSize(10); doc.text(jobAddress || "Traced from map", 14, 56);
@@ -351,21 +360,23 @@ export default function App() {
       startY: 70,
       head: [['Description', 'Qty', 'Rate', 'Total']],
       body: [
-        ['Metal Coil Required', `${totalMeters.toFixed(2)} m`, `$${settings.metalCostPerMeter}`, `$${baseMaterial.toFixed(2)}`],
-        ['Installation Labor', `${totalSheets} sheets`, `$${settings.laborRatePerSheet}`, `$${baseLabor.toFixed(2)}`]
+        ['Metal Coil Required', totalMeters.toFixed(2) + " m", "$" + settings.metalCostPerMeter, "$" + baseMaterial.toFixed(2)],
+        ['Installation Labor', totalSheets + " sheets", "$" + settings.laborRatePerSheet, "$" + baseLabor.toFixed(2)]
       ],
       theme: 'grid', headStyles: { fillColor: [0, 123, 255] }
     });
 
     const finalY = doc.lastAutoTable.finalY || 100;
     doc.setFontSize(11);
-    doc.text(`Subtotal:`, 130, finalY + 10); doc.text(`$${subtotal.toFixed(2)}`, 180, finalY + 10, { align: 'right' });
-    doc.text(`Markup (${settings.markupPercentage}%):`, 130, finalY + 18); doc.text(`$${markup.toFixed(2)}`, 180, finalY + 18, { align: 'right' });
-    doc.text(`Tax (${settings.taxPercentage}%):`, 130, finalY + 26); doc.text(`$${tax.toFixed(2)}`, 180, finalY + 26, { align: 'right' });
-    doc.setFontSize(14); doc.setFont("helvetica", "bold");
-    doc.text(`Total Due:`, 130, finalY + 38); doc.text(`$${finalTotal.toFixed(2)}`, 180, finalY + 38, { align: 'right' });
     
-    doc.save(`Invoice_${jobAddress || 'Job'}.pdf`);
+    // Fixed: No backticks
+    doc.text("Subtotal:", 130, finalY + 10); doc.text("$" + subtotal.toFixed(2), 180, finalY + 10, { align: 'right' });
+    doc.text("Markup (" + settings.markupPercentage + "%):", 130, finalY + 18); doc.text("$" + markup.toFixed(2), 180, finalY + 18, { align: 'right' });
+    doc.text("Tax (" + settings.taxPercentage + "%):", 130, finalY + 26); doc.text("$" + tax.toFixed(2), 180, finalY + 26, { align: 'right' });
+    doc.setFontSize(14); doc.setFont("helvetica", "bold");
+    doc.text("Total Due:", 130, finalY + 38); doc.text("$" + finalTotal.toFixed(2), 180, finalY + 38, { align: 'right' });
+    
+    doc.save("Invoice_" + (jobAddress || 'Job') + ".pdf");
   };
 
   // --- Render Helpers ---
@@ -373,7 +384,7 @@ export default function App() {
   if (exteriorMeters && exteriorMeters.length > 0) {
     const xs = exteriorMeters.map(p => p[0]);
     const ys = exteriorMeters.map(p => p[1]);
-    svgViewBox = `${Math.min(...xs) - 2} ${Math.min(...ys) - 2} ${Math.max(...xs) - Math.min(...xs) + 4} ${Math.max(...ys) - Math.min(...ys) + 4}`;
+    svgViewBox = (Math.min(...xs) - 2) + " " + (Math.min(...ys) - 2) + " " + (Math.max(...xs) - Math.min(...xs) + 4) + " " + (Math.max(...ys) - Math.min(...ys) + 4);
   }
 
   return (
@@ -407,7 +418,6 @@ export default function App() {
           {savedJobs.length === 0 ? <p>No saved jobs yet.</p> : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {savedJobs.map(job => {
-                // Fix #3: Defensive parsing for job list
                 const sheetCount = (job.result?.summary || '').match(/Total Sheets:\s*(\d+)/i)?.[1] || '?';
                 return (
                   <div key={job.id} style={{ display: 'flex', justifyContent: 'space-between', background: 'white', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}>
@@ -450,7 +460,7 @@ export default function App() {
                 placeholder="Enter Job Address or Client Name..." 
                 value={jobAddress}
                 onChange={e => setJobAddress(e.target.value)}
-                style={{ width: '100%', padding: '12px', fontSize: '16px', border: '1px solid #ccc', borderRadius: '8px' }}
+                style={{ width: '100%', padding: '12px', fontSize: '16px', border: '1px solid #ccc', borderRadius: '8px', boxSizing: 'border-box' }}
               />
             </div>
           )}
@@ -462,7 +472,6 @@ export default function App() {
                 <SearchControl />
                 <LocateControl />
                 
-                {/* Fix #5: Map-level click handler for calibration */}
                 <MapClickHandler active={isCalibrating} onClick={handleMapClick} />
 
                 {isCalibrating && (
@@ -493,7 +502,7 @@ export default function App() {
                   </div>
                 ) : (
                   <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '14px' }} onClick={() => setIsCalibrating(true)}>
-                    📐 Calibrate Scale {scaleFactor !== 1 && `(${scaleFactor.toFixed(2)}x)`}
+                    📐 Calibrate Scale {scaleFactor !== 1 && "(" + scaleFactor.toFixed(2) + "x)"}
                   </button>
                 )}
               </div>
@@ -542,7 +551,7 @@ export default function App() {
               <div className="visualizer" style={{ background: 'white', padding: '20px', borderRadius: '8px', border: '1px solid #ccc' }}>
                 <h3 style={{ marginTop: 0 }}>Shop Drawing</h3>
                 <svg viewBox={svgViewBox} width="100%" height="auto">
-                  <polygon points={exteriorMeters.map(p => `${p[0]},${p[1]}`).join(' ')} fill="none" stroke="black" strokeWidth="0.2" />
+                  <polygon points={exteriorMeters.map(p => p[0] + "," + p[1]).join(' ')} fill="none" stroke="black" strokeWidth="0.2" />
                   {result.sheets?.map((sheet, i) => (
                     <line key={i} x1={sheet.start[0]} y1={sheet.start[1]} x2={sheet.end[0]} y2={sheet.end[1]} stroke="red" strokeWidth="0.1" opacity="0.6" />
                   ))}
