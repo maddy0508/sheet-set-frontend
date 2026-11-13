@@ -157,47 +157,30 @@ export default function App() {
   };
 
   const applyCalibration = () => {
-    if (calibrationPoints.length !== 2 || !realWorldLength) {
-      showToast("Please mark 2 points and enter the real length.", "error");
-      return;
-    }
-    
-    const p1 = calibrationPoints[0];
-    const p2 = calibrationPoints[1];
-    
-    const metersArray = latLngToMeters([p1, p2], false);
-    const distInMeters = Math.hypot(metersArray[1][0], metersArray[1][1]);
-    
-    if (distInMeters <= 0) {
-       showToast("Points are too close together.", "error");
-       return;
-    }
+  if (calibrationPoints.length !== 2 || !realWorldLength) {
+    showToast("Please mark 2 points and enter the real length.", "error");
+    return;
+  }
+  
+  const p1 = calibrationPoints[0];
+  const p2 = calibrationPoints[1];
+  
+  const metersArray = latLngToMeters([p1, p2], false);
+  const distInMeters = Math.hypot(metersArray[1][0], metersArray[1][1]);
+  
+  if (distInMeters <= 0) {
+     showToast("Points are too close together.", "error");
+     return;
+  }
 
-    const factor = parseFloat(realWorldLength) / distInMeters;
-    setScaleFactor(factor);
-    setIsCalibrating(false);
-    setCalibrationPoints([]);
-    setRealWorldLength("");
-    
-    // Fixed: No backticks
-    showToast("Scale calibrated: 1 map unit = " + factor.toFixed(2) + " actual meters", "success");
-  };
-
-  const latLngToMeters = (latLngs, applyScale = true) => {
-    const origin = latLngs[0];
-    const R = 6371000; 
-    return latLngs.map((ll, index) => {
-      const dLat = (ll.lat - origin.lat) * Math.PI / 180;
-      const dLng = (ll.lng - origin.lng) * Math.PI / 180;
-      let x = dLng * R * Math.cos(origin.lat * Math.PI / 180);
-      let y = dLat * R;
-      if (applyScale && scaleFactor !== 1) {
-        x = x * scaleFactor;
-        y = y * scaleFactor;
-      }
-      return [index === 0 ? 0 : x, index === 0 ? 0 : y];
-    });
-  };
+  const factor = parseFloat(realWorldLength) / distInMeters;
+  setScaleFactor(factor);
+  setIsCalibrating(false);
+  setCalibrationPoints([]);
+  setRealWorldLength("");
+  
+  showToast(`Scale calibrated: 1 map unit = ${factor.toFixed(2)} actual meters`, "success");
+};
 
   // --- Map Draw Logic ---
   const onCreated = (e) => {
