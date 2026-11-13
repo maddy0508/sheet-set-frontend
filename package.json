@@ -9,8 +9,8 @@
     "axios": "^1.6.0",
     "leaflet": "^1.9.4",
     "leaflet-draw": "^1.0.4",
-    "react-leaflet": "^4.2.1",
-    "marwan-yasser-react-leaflet-draw": "^0.20.7"
+    "marwan-yasser-react-leaflet-draw": "^0.20.7",
+    "prop-types": "^15.8.1"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.0",
