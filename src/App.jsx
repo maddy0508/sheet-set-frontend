@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 
 // ⚠️ REPLACE THIS WITH YOUR RENDER URL WHEN IT IS LIVE
-const API_URL = "https://sheet-set-backend.onrender.com/"; 
+const API_URL = "https://sheet-set-backend.onrender.com"; 
 
 function App() {
   const [pitch, setPitch] = useState(30);
