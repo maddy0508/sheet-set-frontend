@@ -553,5 +553,3 @@ export default function App() {
     </div>
   );
 }
-                    <input type="number" placeholder="Real length (m)" value={realWorldLength} onChange={e => setRealWorldLength(e.target.value)} style={{ width: '100px', padding: '4px', marginBottom: '5px' }} />
-                    <button className="btn btn-primary" style
