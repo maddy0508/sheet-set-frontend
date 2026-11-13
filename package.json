@@ -6,7 +6,10 @@
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "axios": "^1.6.0"
+    "axios": "^1.6.0",
+    "leaflet": "^1.9.4",
+    "react-leaflet": "^4.2.1",
+    "marwan-yasser-react-leaflet-draw": "^0.20.7"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.2.0",
