@@ -157,30 +157,46 @@ export default function App() {
   };
 
   const applyCalibration = () => {
-  if (calibrationPoints.length !== 2 || !realWorldLength) {
-    showToast("Please mark 2 points and enter the real length.", "error");
-    return;
-  }
-  
-  const p1 = calibrationPoints[0];
-  const p2 = calibrationPoints[1];
-  
-  const metersArray = latLngToMeters([p1, p2], false);
-  const distInMeters = Math.hypot(metersArray[1][0], metersArray[1][1]);
-  
-  if (distInMeters <= 0) {
-     showToast("Points are too close together.", "error");
-     return;
-  }
+    if (calibrationPoints.length !== 2 || !realWorldLength) {
+      showToast("Please mark 2 points and enter the real length.", "error");
+      return;
+    }
+    
+    const p1 = calibrationPoints[0];
+    const p2 = calibrationPoints[1];
+    
+    const metersArray = latLngToMeters([p1, p2], false);
+    const distInMeters = Math.hypot(metersArray[1][0], metersArray[1][1]);
+    
+    if (distInMeters <= 0) {
+       showToast("Points are too close together.", "error");
+       return;
+    }
 
-  const factor = parseFloat(realWorldLength) / distInMeters;
-  setScaleFactor(factor);
-  setIsCalibrating(false);
-  setCalibrationPoints([]);
-  setRealWorldLength("");
-  
-  showToast(`Scale calibrated: 1 map unit = ${factor.toFixed(2)} actual meters`, "success");
-};
+    const factor = parseFloat(realWorldLength) / distInMeters;
+    setScaleFactor(factor);
+    setIsCalibrating(false);
+    setCalibrationPoints([]);
+    setRealWorldLength("");
+    
+    showToast("Scale calibrated: 1 map unit = " + factor.toFixed(2) + " actual meters", "success");
+  };
+
+  const latLngToMeters = (latLngs, applyScale = true) => {
+    const origin = latLngs[0];
+    const R = 6371000; 
+    return latLngs.map((ll, index) => {
+      const dLat = (ll.lat - origin.lat) * Math.PI / 180;
+      const dLng = (ll.lng - origin.lng) * Math.PI / 180;
+      let x = dLng * R * Math.cos(origin.lat * Math.PI / 180);
+      let y = dLat * R;
+      if (applyScale && scaleFactor !== 1) {
+        x = x * scaleFactor;
+        y = y * scaleFactor;
+      }
+      return [index === 0 ? 0 : x, index === 0 ? 0 : y];
+    });
+  };
 
   // --- Map Draw Logic ---
   const onCreated = (e) => {
@@ -281,7 +297,6 @@ export default function App() {
     };
     const encoded = btoa(JSON.stringify(data));
     
-    // Fixed: No backticks
     const shareUrl = window.location.origin + window.location.pathname + "?share=" + encoded;
     
     navigator.clipboard.writeText(shareUrl).then(() => {
@@ -324,7 +339,6 @@ export default function App() {
     const doc = new jsPDF();
     doc.setFontSize(22); doc.text(settings.companyName, 14, 20);
     
-    // Fixed: No backticks
     doc.setFontSize(10); doc.text("ABN: " + settings.abn + " | Phone: " + settings.phone, 14, 28);
     doc.setFontSize(18); doc.text("INVOICE", 150, 20);
     doc.setFontSize(10); doc.text("Date: " + new Date().toLocaleDateString(), 150, 28);
@@ -345,7 +359,6 @@ export default function App() {
     const finalY = doc.lastAutoTable.finalY || 100;
     doc.setFontSize(11);
     
-    // Fixed: No backticks
     doc.text("Subtotal:", 130, finalY + 10); doc.text("$" + subtotal.toFixed(2), 180, finalY + 10, { align: 'right' });
     doc.text("Markup (" + settings.markupPercentage + "%):", 130, finalY + 18); doc.text("$" + markup.toFixed(2), 180, finalY + 18, { align: 'right' });
     doc.text("Tax (" + settings.taxPercentage + "%):", 130, finalY + 26); doc.text("$" + tax.toFixed(2), 180, finalY + 26, { align: 'right' });
@@ -540,4 +553,5 @@ export default function App() {
     </div>
   );
 }
-```
+                    <input type="number" placeholder="Real length (m)" value={realWorldLength} onChange={e => setRealWorldLength(e.target.value)} style={{ width: '100px', padding: '4px', marginBottom: '5px' }} />
+                    <button className="btn btn-primary" style
