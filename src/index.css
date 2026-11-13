@@ -6,7 +6,7 @@ body {
   color: #333;
 }
 .container {
-  max-width: 600px;
+  max-width: 800px;
   margin: 0 auto;
   background: white;
   padding: 20px;
@@ -29,3 +29,4 @@ button:disabled { background-color: #a0c4ff; }
 pre { background: #f8f9fa; padding: 15px; border-radius: 8px; font-size: 12px; overflow-x: auto; }
 .visualizer { margin-top: 10px; }
 h3 { margin: 0 0 10px 0; font-size: 16px; }
+.map-wrapper { border-radius: 8px; overflow: hidden; border: 1px solid #ccc; }
