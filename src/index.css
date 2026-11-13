@@ -1,0 +1,31 @@
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: #f0f2f5;
+  margin: 0;
+  padding: 15px;
+  color: #333;
+}
+.container {
+  max-width: 600px;
+  margin: 0 auto;
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+header h1 { margin: 0 0 5px 0; font-size: 24px; }
+header p { margin: 0 0 20px 0; color: #666; font-size: 14px; }
+.controls { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
+.input-group { display: flex; flex-direction: column; }
+.input-group label { font-size: 14px; font-weight: bold; margin-bottom: 5px; }
+button {
+  background-color: #007bff; color: white; border: none; padding: 12px;
+  border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer;
+}
+button:disabled { background-color: #a0c4ff; }
+.download-btn { background-color: #28a745; margin-top: 10px; width: 100%; }
+.error { color: #dc3545; background: #f8d7da; padding: 10px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
+.results { display: flex; flex-direction: column; gap: 20px; }
+pre { background: #f8f9fa; padding: 15px; border-radius: 8px; font-size: 12px; overflow-x: auto; }
+.visualizer { margin-top: 10px; }
+h3 { margin: 0 0 10px 0; font-size: 16px; }
