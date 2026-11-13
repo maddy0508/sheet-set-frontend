@@ -15,15 +15,16 @@ body {
 }
 header h1 { margin: 0 0 5px 0; font-size: 24px; }
 header p { margin: 0 0 20px 0; color: #666; font-size: 14px; }
-.controls { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
+.controls, .settings-form { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
 .input-group { display: flex; flex-direction: column; }
 .input-group label { font-size: 14px; font-weight: bold; margin-bottom: 5px; }
+.input-group input[type="text"], .input-group input[type="number"] { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
 button {
   background-color: #007bff; color: white; border: none; padding: 12px;
   border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer;
 }
 button:disabled { background-color: #a0c4ff; }
-.download-btn { background-color: #28a745; margin-top: 10px; width: 100%; }
+.download-btn { background-color: #28a745; width: 100%; }
 .error { color: #dc3545; background: #f8d7da; padding: 10px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
 .results { display: flex; flex-direction: column; gap: 20px; }
 pre { background: #f8f9fa; padding: 15px; border-radius: 8px; font-size: 12px; overflow-x: auto; }
