@@ -1,70 +1,486 @@
 @import 'leaflet/dist/leaflet.css';
 @import 'leaflet-draw/dist/leaflet.draw.css';
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* ─── MITCHELL'S METAL ROOFING — Design Tokens ─────────── */
+:root {
+  /* Primary Colours — matched to logo */
+  --brand-slate: #2A4360;        /* Deep slate blue */
+  --brand-slate-light: #3D5A7A;  /* Lighter slate blue */
+  --brand-slate-dark: #1E3249;   /* Dark slate */
+  --chrome-light: #E8EBEE;       /* Light silver/chrome */
+  --chrome-mid: #B4BCC4;         /* Medium silver */
+  --chrome-dark: #6B7783;        /* Dark silver/grey */
+  --charcoal: #23272B;           /* Deep grey-black */
+  --charcoal-light: #383E44;     /* Mid charcoal */
+
+  /* Neutrals */
+  --bg-page: #E3E6E9;            /* Light grey background — like logo backdrop */
+  --bg-card: #F8F9FA;            /* Panel background */
+  --text-primary: var(--charcoal);
+  --text-secondary: #505860;
+  --text-muted: #88929C;
+  --border-light: #D0D5DA;
+  --border-medium: #B4BCC4;
+
+  /* Status */
+  --success: #2E7D50;
+  --error: #B53939;
+  --info: var(--brand-slate);
+
+  /* Effects */
+  --shadow-sm: 0 1px 3px rgba(35, 39, 43, 0.06);
+  --shadow-md: 0 4px 14px rgba(35, 39, 43, 0.12);
+  --shadow-lg: 0 12px 40px rgba(35, 39, 43, 0.15);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --transition: 180ms ease-out;
+}
+
+/* ─── Base ─────────────────────────────────────────────── */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background-color: #f0f2f5;
-  margin: 0;
-  padding: 15px;
-  color: #333;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: linear-gradient(180deg, #D9DDE1 0%, #E3E6E9 100%);
+  min-height: 100vh;
+  padding: 20px 16px;
+  color: var(--text-primary);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
+/* ─── Main Container ───────────────────────────────────── */
 .container {
-  max-width: 900px;
+  max-width: 960px;
   margin: 0 auto;
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  background: #FFFFFF;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  border: 1px solid var(--border-light);
 }
 
-header h1 { margin: 0 0 5px 0; font-size: 24px; }
-header p { margin: 0; color: #666; font-size: 14px; }
-
-/* Inputs */
-.input-group { display: flex; flex-direction: column; margin-bottom: 10px; }
-.input-group label { font-size: 14px; font-weight: bold; margin-bottom: 5px; }
-input[type="text"], input[type="number"] { 
-  padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; 
-  width: 100%; box-sizing: border-box;
+/* ─── Header — Matches Logo Vibe ────────────────────────── */
+header {
+  background: linear-gradient(180deg, var(--charcoal) 0%, #2C3136 100%);
+  padding: 22px 28px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 3px solid var(--brand-slate);
 }
-input[type="range"] { width: 100%; margin-top: 5px; }
 
-/* Unified Button System */
-.btn {
-  padding: 10px 16px;
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.logo-container img {
+  height: 48px;
+  object-fit: contain;
+}
+
+.header-title {
+  color: #FFFFFF;
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+.header-subtitle {
+  color: var(--chrome-mid);
+  font-size: 12px;
+  font-weight: 500;
+  margin: 2px 0 0 0;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+/* ─── Section Spacing ──────────────────────────────────── */
+.section-padding {
+  padding: 24px 28px;
+}
+
+/* ─── Mode Toggle ───────────────────────────────────────── */
+.mode-toggle {
+  display: flex;
+  background: var(--chrome-light);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin: 24px 28px 0;
+  border: 1px solid var(--border-light);
+}
+
+.mode-toggle button {
+  flex: 1;
+  padding: 12px 16px;
   border: none;
-  border-radius: 6px;
+  background: transparent;
+  font-weight: 600;
   font-size: 14px;
-  font-weight: bold;
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: opacity 0.2s, transform 0.1s;
+  transition: all var(--transition);
+}
+
+.mode-toggle button:hover {
+  color: var(--charcoal);
+  background: rgba(42, 67, 96, 0.06);
+}
+
+.mode-toggle button.active {
+  background: var(--brand-slate);
+  color: white;
+}
+
+/* ─── Headings ─────────────────────────────────────────── */
+h3 {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--charcoal);
+  margin-bottom: 16px;
+  border-bottom: 2px solid var(--chrome-light);
+  padding-bottom: 8px;
+}
+
+/* ─── Inputs ────────────────────────────────────────────── */
+.input-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 18px;
+}
+
+.input-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+input[type="text"],
+input[type="number"] {
+  padding: 12px 14px;
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+  transition: all var(--transition);
+  background: white;
+  color: var(--charcoal);
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus {
+  border-color: var(--brand-slate);
+  box-shadow: inset 0 0 0 1px var(--brand-slate);
+  outline: none;
+}
+
+input[type="range"] {
+  width: 100%;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--chrome-light);
+  -webkit-appearance: none;
+  appearance: none;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--brand-slate);
+  border: 2px solid white;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(42, 67, 96, 0.3);
+}
+
+/* ─── Buttons — Industrial & Solid ──────────────────────── */
+.btn {
+  padding: 12px 20px;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  transition: all var(--transition);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-.btn:active { transform: scale(0.98); }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.btn-primary { background-color: #007bff; color: white; }
-.btn-secondary { background-color: #e9ecef; color: #333; border: 1px solid #ced4da; }
-.btn-success { background-color: #28a745; color: white; }
-.btn-danger { background-color: #dc3545; color: white; }
-
-/* Map */
-.map-wrapper { 
-  border-radius: 8px; 
-  overflow: hidden; 
-  border: 1px solid #ccc; 
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  font-family: inherit;
+  text-transform: uppercase;
 }
 
-/* Results */
-.results { display: flex; flex-direction: column; gap: 20px; }
-pre { 
-  background: #f8f9fa; padding: 15px; border-radius: 8px; 
-  font-size: 14px; overflow-x: auto; white-space: pre-wrap;
-  border: 1px solid #eee;
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
 }
-.visualizer { margin-top: 10px; }
-h3 { margin: 0 0 10px 0; font-size: 18px; }
+
+.btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-primary {
+  background: linear-gradient(180deg, var(--brand-slate-light) 0%, var(--brand-slate) 100%);
+  color: white;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1), 0 3px 8px rgba(42, 67, 96, 0.25);
+  border: 1px solid var(--brand-slate-dark);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, #4A6B8F 0%, #2F4C6E 100%);
+}
+
+.btn-secondary {
+  background: white;
+  color: var(--charcoal);
+  border: 1px solid var(--border-medium);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  border-color: var(--chrome-dark);
+  background: var(--bg-page);
+}
+
+.btn-success {
+  background: linear-gradient(180deg, #3A945F 0%, #2E7D50 100%);
+  color: white;
+  border: 1px solid #256642;
+}
+
+.btn-danger {
+  background: linear-gradient(180deg, #CC4545 0%, #B53939 100%);
+  color: white;
+  border: 1px solid #962E2E;
+}
+
+.btn-sm {
+  padding: 8px 14px;
+  font-size: 12px;
+}
+
+/* ─── Cards & Panels ────────────────────────────────────── */
+.panel {
+  background: var(--bg-page);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  border: 1px solid var(--border-light);
+}
+
+.stats-card {
+  background: white;
+  padding: 22px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-light);
+  margin-bottom: 20px;
+}
+
+/* ─── Map Area ──────────────────────────────────────────── */
+.map-wrapper {
+  height: 450px;
+  width: 100%;
+  position: relative;
+}
+
+.map-container-wrapper {
+  position: relative;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.instruction-banner {
+  background: var(--bg-page);
+  color: var(--brand-slate);
+  padding: 12px 20px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 14px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* Calibration overlay panel */
+.calibration-panel {
+  background: white;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 14px 16px;
+  border: 1px solid var(--border-medium);
+}
+
+/* ─── Results Section ───────────────────────────────────── */
+.results {
+  padding: 28px;
+  background: var(--bg-page);
+  border-top: 1px solid var(--border-light);
+}
+
+pre {
+  background: white;
+  padding: 18px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-family: 'JetBrains Mono', monospace;
+  overflow-x: auto;
+  border: 1px solid var(--border-light);
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin: 0 0 16px 0;
+}
+
+.actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+/* ─── Toast Notifications ──────────────────────────────── */
+.toast {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  padding: 14px 24px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 9999;
+  font-weight: 600;
+  font-size: 14px;
+  border-left: 4px solid;
+  max-width: 90%;
+}
+
+.toast.success {
+  border-color: var(--success);
+  color: #1E5638;
+}
+
+.toast.error {
+  border-color: var(--error);
+  color: #7A2626;
+}
+
+/* ─── Job List Items ────────────────────────────────────── */
+.job-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-light);
+  margin-bottom: 8px;
+  transition: border-color var(--transition);
+}
+
+.job-item:hover {
+  border-color: var(--brand-slate-light);
+  cursor: pointer;
+}
+
+.job-item strong {
+  display: block;
+  color: var(--charcoal);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.job-item small {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 2px;
+  display: block;
+}
+
+/* ─── Leaflet Search Overrides ──────────────────────────── */
+.leaflet-control-geosearch {
+  margin: 15px !important;
+  border-radius: var(--radius-md) !important;
+  box-shadow: var(--shadow-md) !important;
+  border: none !important;
+  overflow: hidden;
+}
+
+.leaflet-control-geosearch form {
+  border-radius: var(--radius-md) !important;
+  border: 1px solid var(--border-medium) !important;
+  background: white !important;
+}
+
+.leaflet-control-geosearch form input {
+  padding: 12px 16px !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  color: var(--charcoal) !important;
+}
+
+.leaflet-control-geosearch .result {
+  font-family: inherit !important;
+  border-bottom: 1px solid var(--border-light) !important;
+}
+
+.leaflet-control-geosearch .result.active,
+.leaflet-control-geosearch .result:hover {
+  background: var(--bg-page) !important;
+}
+
+/* ─── Responsive ────────────────────────────────────────── */
+@media (max-width: 640px) {
+  body {
+    padding: 12px 8px;
+  }
+
+  header {
+    padding: 18px 20px;
+    flex-direction: column;
+    gap: 14px;
+    text-align: center;
+  }
+
+  .section-padding {
+    padding: 18px 16px;
+  }
+
+  .map-wrapper {
+    height: 320px;
+  }
+
+  .actions-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .mode-toggle {
+    margin: 16px 16px 0;
+  }
+
+  .logo-container img {
+    height: 40px;
+  }
+}
