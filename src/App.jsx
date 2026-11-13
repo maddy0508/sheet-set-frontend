@@ -1,10 +1,3 @@
-This is a copy-paste error. When you copied the code, one of the backtick characters ( ` ) used for the template string got converted into a "smart quote" (or a stray character) by your phone's keyboard.
-
-To fix this permanently, I have rewritten App.jsx to not use any backticks at all. I replaced all template strings with standard string concatenation. This guarantees it will compile on any system.
-
-Here is the complete, fixed src/App.jsx. Replace the entire file with this:
-
-```javascript
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { MapContainer, TileLayer, FeatureGroup, useMap, Marker, Polyline, useMapEvents } from 'react-leaflet';
