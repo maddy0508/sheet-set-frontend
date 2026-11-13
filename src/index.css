@@ -8,29 +8,63 @@ body {
   padding: 15px;
   color: #333;
 }
+
 .container {
-  max-width: 800px;
+  max-width: 900px;
   margin: 0 auto;
   background: white;
   padding: 20px;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
+
 header h1 { margin: 0 0 5px 0; font-size: 24px; }
-header p { margin: 0 0 20px 0; color: #666; font-size: 14px; }
-.controls, .settings-form { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
-.input-group { display: flex; flex-direction: column; }
+header p { margin: 0; color: #666; font-size: 14px; }
+
+/* Inputs */
+.input-group { display: flex; flex-direction: column; margin-bottom: 10px; }
 .input-group label { font-size: 14px; font-weight: bold; margin-bottom: 5px; }
-.input-group input[type="text"], .input-group input[type="number"] { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
-button {
-  background-color: #007bff; color: white; border: none; padding: 12px;
-  border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer;
+input[type="text"], input[type="number"] { 
+  padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 16px; 
+  width: 100%; box-sizing: border-box;
 }
-button:disabled { background-color: #a0c4ff; }
-.download-btn { background-color: #28a745; width: 100%; }
-.error { color: #dc3545; background: #f8d7da; padding: 10px; border-radius: 8px; margin-bottom: 20px; font-size: 14px; }
+input[type="range"] { width: 100%; margin-top: 5px; }
+
+/* Unified Button System */
+.btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn:active { transform: scale(0.98); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-primary { background-color: #007bff; color: white; }
+.btn-secondary { background-color: #e9ecef; color: #333; border: 1px solid #ced4da; }
+.btn-success { background-color: #28a745; color: white; }
+.btn-danger { background-color: #dc3545; color: white; }
+
+/* Map */
+.map-wrapper { 
+  border-radius: 8px; 
+  overflow: hidden; 
+  border: 1px solid #ccc; 
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+/* Results */
 .results { display: flex; flex-direction: column; gap: 20px; }
-pre { background: #f8f9fa; padding: 15px; border-radius: 8px; font-size: 12px; overflow-x: auto; }
+pre { 
+  background: #f8f9fa; padding: 15px; border-radius: 8px; 
+  font-size: 14px; overflow-x: auto; white-space: pre-wrap;
+  border: 1px solid #eee;
+}
 .visualizer { margin-top: 10px; }
-h3 { margin: 0 0 10px 0; font-size: 16px; }
-.map-wrapper { border-radius: 8px; overflow: hidden; border: 1px solid #ccc; }
+h3 { margin: 0 0 10px 0; font-size: 18px; }
