@@ -8,7 +8,6 @@ import 'jspdf-autotable';
 const API_URL = "https://sheet-set-backend.onrender.com"; 
 
 function App() {
-  // App State
   const [pitch, setPitch] = useState(30);
   const [width, setWidth] = useState(760);
   const [loading, setLoading] = useState(false);
@@ -18,10 +17,8 @@ function App() {
   const [exteriorMeters, setExteriorMeters] = useState(null);
   const [mapCenter, setMapCenter] = useState([-33.8688, 151.2093]);
   
-  // View State
   const [showSettings, setShowSettings] = useState(false);
   
-  // Business Settings State (Loaded from LocalStorage)
   const [settings, setSettings] = useState({
     companyName: "Acme Roofing",
     abn: "12 345 678 901",
@@ -30,7 +27,6 @@ function App() {
     laborRatePerSheet: 45.00
   });
 
-  // Load settings on mount
   useEffect(() => {
     const saved = localStorage.getItem('sheetSetSettings');
     if (saved) {
@@ -126,22 +122,18 @@ function App() {
   const generateInvoice = () => {
     if (!result) return;
 
-    // Parse the summary text from the backend to extract numbers
     const totalSheetsMatch = result.summary.match(/Total Sheets: (\d+)/);
     const totalMetersMatch = result.summary.match(/Linear Meters Ordered: ([\d.]+)/);
     
     const totalSheets = totalSheetsMatch ? parseInt(totalSheetsMatch[1]) : 0;
     const totalMeters = totalMetersMatch ? parseFloat(totalMetersMatch[1]) : 0;
 
-    // Calculate costs based on user settings
     const materialCost = totalMeters * parseFloat(settings.metalCostPerMeter);
     const laborCost = totalSheets * parseFloat(settings.laborRatePerSheet);
     const totalCost = materialCost + laborCost;
 
-    // Generate PDF
     const doc = new jsPDF();
     
-    // Header
     doc.setFontSize(22);
     doc.text(settings.companyName, 14, 20);
     doc.setFontSize(10);
@@ -153,13 +145,11 @@ function App() {
     doc.setFontSize(10);
     doc.text(`Date: ${new Date().toLocaleDateString()}`, 150, 28);
     
-    // Bill To (Placeholder for now, can be wired to map later)
     doc.setFontSize(12);
     doc.text("Job Location:", 14, 50);
     doc.setFontSize(10);
-    doc.text("Lat/Lng from Map", 14, 56); // We can save the exact address later
+    doc.text("Lat/Lng from Map", 14, 56);
 
-    // Table of Quantities
     doc.autoTable({
       startY: 70,
       head: [['Description', 'Qty', 'Unit Rate', 'Total']],
@@ -173,13 +163,11 @@ function App() {
       headStyles: { fillColor: [0, 123, 255] }
     });
 
-    // Total
     const finalY = doc.lastAutoTable.finalY || 100;
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.text(`Total Due: $${totalCost.toFixed(2)}`, 14, finalY + 20);
 
-    // Save
     doc.save(`Invoice_${new Date().getTime()}.pdf`);
   };
 
