@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { MapContainer, TileLayer, FeatureGroup, useMap, Marker, Polyline, useMapEvents } from 'react-leaflet';
 import { EditControl } from 'marwan-yasser-react-leaflet-draw';
@@ -7,8 +7,42 @@ import 'leaflet-geosearch/dist/geosearch.css';
 import { GeoSearchControl, OpenStreetMapProvider } from 'leaflet-geosearch';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls } from '@react-three/drei';
 
 const API_URL = import.meta.env.VITE_API_URL || "https://sheet-set-backend.onrender.com"; 
+
+// --- 3D Mesh Component ---
+const RoofMesh = ({ vertices, faces }) => {
+  const geometry = useMemo(() => {
+    if (!vertices || !faces) return null;
+    
+    // Triangulate faces (compas might return quads/trapezoids)
+    const triangles = [];
+    faces.forEach(face => {
+      for (let i = 1; i < face.length - 1; i++) {
+        triangles.push([face[0], face[i], face[i+1]]);
+      }
+    });
+
+    const positions = new Float32Array(vertices.flat());
+    const indices = new Uint32Array(triangles.flat());
+
+    return { positions, indices };
+  }, [vertices, faces]);
+
+  if (!geometry) return null;
+
+  return (
+    <mesh>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" count={geometry.positions.length / 3} array={geometry.positions} itemSize={3} />
+        <bufferAttribute attach="index" count={geometry.indices.length} array={geometry.indices} itemSize={1} />
+      </bufferGeometry>
+      <meshStandardMaterial color="#2A4360" side={2} flatShading={true} />
+    </mesh>
+  );
+};
 
 function Toast({ message, type, onClose }) {
   useEffect(() => {
@@ -16,22 +50,14 @@ function Toast({ message, type, onClose }) {
     return () => clearTimeout(timer);
   }, [onClose]);
   if (!message) return null;
-  return (
-    <div className={"toast " + (type === 'error' ? 'error' : 'success')}>
-      {message}
-    </div>
-  );
+  return <div className={"toast " + (type === 'error' ? 'error' : 'success')}>{message}</div>;
 }
 
 function SearchControl() {
   const map = useMap();
   useEffect(() => {
     const provider = new OpenStreetMapProvider();
-    const searchControl = new GeoSearchControl({
-      provider, style: 'bar', showMarker: true, showPopup: false,
-      autoClose: true, retainZoomLevel: false, animateZoom: true,
-      keepResult: false, searchLabel: 'Search address...',
-    });
+    const searchControl = new GeoSearchControl({ provider, style: 'bar', showMarker: true, showPopup: false, autoClose: true, retainZoomLevel: false, animateZoom: true, keepResult: false, searchLabel: 'Search address...' });
     map.addControl(searchControl);
     return () => map.removeControl(searchControl);
   }, [map]);
@@ -62,6 +88,8 @@ function MapClickHandler({ active, onClick }) {
 
 export default function App() {
   const [mapMode, setMapMode] = useState('draw');
+  const [viewMode, setViewMode] = useState('2d'); // '2d' or '3d'
+  
   const [pitch, setPitch] = useState(30);
   const [width, setWidth] = useState(760);
   const [loading, setLoading] = useState(false);
@@ -84,8 +112,7 @@ export default function App() {
   
   const [settings, setSettings] = useState({
     companyName: "Mitchell's Metal Roofing", abn: "0435 918 594", phone: "",
-    metalCostPerMeter: 15.00, laborRatePerSheet: 45.00,
-    markupPercentage: 20.0, taxPercentage: 10.0, overhangMm: 150
+    metalCostPerMeter: 15.00, laborRatePerSheet: 45.00, markupPercentage: 20.0, taxPercentage: 10.0, overhangMm: 150
   });
 
   useEffect(() => {
@@ -103,12 +130,9 @@ export default function App() {
     if (sharedData) {
       try {
         const decoded = JSON.parse(atob(sharedData));
-        setJobAddress(decoded.address || "Shared Job");
-        setPitch(decoded.pitch || 30);
-        setWidth(decoded.width || 760);
-        setExteriorMeters(decoded.exterior);
-        setResult(decoded.result);
-        setIsReadOnly(true);
+        setJobAddress(decoded.address || "Shared Job"); setPitch(decoded.pitch || 30);
+        setWidth(decoded.width || 760); setExteriorMeters(decoded.exterior);
+        setResult(decoded.result); setIsReadOnly(true);
       } catch (e) { setToast({ message: "Invalid share link", type: 'error' }); }
     }
   }, []);
@@ -122,79 +146,49 @@ export default function App() {
   };
 
   const applyCalibration = () => {
-    if (calibrationPoints.length !== 2 || !realWorldLength) {
-      showToast("Please mark 2 points and enter the real length.", "error");
-      return;
-    }
-    const p1 = calibrationPoints[0];
-    const p2 = calibrationPoints[1];
+    if (calibrationPoints.length !== 2 || !realWorldLength) { showToast("Please mark 2 points and enter the real length.", "error"); return; }
+    const p1 = calibrationPoints[0], p2 = calibrationPoints[1];
     const metersArray = latLngToMeters([p1, p2], false);
     const distInMeters = Math.hypot(metersArray[1][0], metersArray[1][1]);
-    
     if (distInMeters <= 0) { showToast("Points are too close.", "error"); return; }
-
-    const factor = parseFloat(realWorldLength) / distInMeters;
-    setScaleFactor(factor);
-    setIsCalibrating(false);
-    setMapMode('draw');
-    setCalibrationPoints([]);
-    setRealWorldLength("");
+    setScaleFactor(parseFloat(realWorldLength) / distInMeters);
+    setIsCalibrating(false); setMapMode('draw'); setCalibrationPoints([]); setRealWorldLength("");
     showToast("Scale calibrated successfully", "success");
   };
 
   const latLngToMeters = (latLngs, applyScale = true) => {
-    const origin = latLngs[0];
-    const R = 6371000; 
+    const origin = latLngs[0], R = 6371000; 
     return latLngs.map((ll, index) => {
-      const dLat = (ll.lat - origin.lat) * Math.PI / 180;
-      const dLng = (ll.lng - origin.lng) * Math.PI / 180;
-      let x = dLng * R * Math.cos(origin.lat * Math.PI / 180);
-      let y = dLat * R;
+      const dLat = (ll.lat - origin.lat) * Math.PI / 180, dLng = (ll.lng - origin.lng) * Math.PI / 180;
+      let x = dLng * R * Math.cos(origin.lat * Math.PI / 180), y = dLat * R;
       if (applyScale && scaleFactor !== 1) { x = x * scaleFactor; y = y * scaleFactor; }
       return [index === 0 ? 0 : x, index === 0 ? 0 : y];
     });
   };
 
-  const onCreated = (e) => {
-    const latLngs = e.layer.getLatLngs()[0];
-    setDrawnCoords(latLngs.map(ll => ({ lat: ll.lat, lng: ll.lng })));
-  };
-  const onEdited = (e) => {
-    e.layers.eachLayer((layer) => {
-      const latLngs = layer.getLatLngs()[0];
-      setDrawnCoords(latLngs.map(ll => ({ lat: ll.lat, lng: ll.lng })));
-    });
-  };
+  const onCreated = (e) => setDrawnCoords(e.layer.getLatLngs()[0].map(ll => ({ lat: ll.lat, lng: ll.lng })));
+  const onEdited = (e) => e.layers.eachLayer((layer) => setDrawnCoords(layer.getLatLngs()[0].map(ll => ({ lat: ll.lat, lng: ll.lng }))));
   const onDeleted = () => { setDrawnCoords(null); setExteriorMeters(null); setResult(null); };
 
   const calculateRoof = async () => {
     if (!drawnCoords) { showToast("Please draw a roof on the map first.", "error"); return; }
-    setLoading(true);
-    setResult(null);
+    setLoading(true); setResult(null);
     const extMeters = latLngToMeters(drawnCoords, true);
     setExteriorMeters(extMeters);
 
     try {
-      const response = await axios.post(API_URL + "/calculate", {
-        exterior: extMeters, pitch_deg: pitch, sheet_width_mm: width, overhang_mm: parseFloat(settings.overhangMm)
-      });
+      const response = await axios.post(API_URL + "/calculate", { exterior: extMeters, pitch_deg: pitch, sheet_width_mm: width, overhang_mm: parseFloat(settings.overhangMm) });
       setResult(response.data);
       showToast("Calculation successful", "success");
-    } catch (err) {
-      showToast(err.response?.data?.detail || "Failed to connect to backend", "error");
-    }
+    } catch (err) { showToast(err.response?.data?.detail || "Failed to connect to backend", "error"); }
     setLoading(false);
   };
 
   const saveJob = () => {
     if (!result || !exteriorMeters) { showToast("Calculate a roof before saving.", "error"); return; }
-    const newJob = {
-      id: Date.now().toString(), address: jobAddress || "Unknown Address",
-      date: new Date().toLocaleDateString(), exterior: exteriorMeters, result, pitch, width
-    };
+    const newJob = { id: Date.now().toString(), address: jobAddress || "Unknown Address", date: new Date().toLocaleDateString(), exterior: exteriorMeters, result, pitch, width };
     const updatedJobs = [newJob, ...savedJobs];
-    setSavedJobs(updatedJobs);
-    localStorage.setItem('sheetSetJobs', JSON.stringify(updatedJobs));
+    setSavedJobs(updatedJobs); localStorage.setItem('sheetSetJobs', JSON.stringify(updatedJobs));
     showToast("Job saved", "success");
   };
 
@@ -208,13 +202,12 @@ export default function App() {
   const deleteJob = (id, e) => {
     e.stopPropagation();
     const updated = savedJobs.filter(j => j.id !== id);
-    setSavedJobs(updated);
-    localStorage.setItem('sheetSetJobs', JSON.stringify(updated));
+    setSavedJobs(updated); localStorage.setItem('sheetSetJobs', JSON.stringify(updated));
   };
 
   const shareJob = () => {
     if (!result || !exteriorMeters) { showToast("Calculate a roof before sharing.", "error"); return; }
-    const data = { address: jobAddress, pitch, width, exterior: exteriorMeters, result: { summary: result.summary, csv_data: result.csv_data, sheets: result.sheets } };
+    const data = { address: jobAddress, pitch, width, exterior: exteriorMeters, result: { summary: result.summary, csv_data: result.csv_data, sheets: result.sheets, mesh_vertices: result.mesh_vertices, mesh_faces: result.mesh_faces } };
     const encoded = btoa(JSON.stringify(data));
     const shareUrl = window.location.origin + window.location.pathname + "?share=" + encoded;
     navigator.clipboard.writeText(shareUrl).then(() => showToast("Share link copied!", "success")).catch(() => prompt("Copy this link:", shareUrl));
@@ -230,38 +223,26 @@ export default function App() {
     if (!result || !result.summary) return;
     let totalSheets = 0, totalMeters = 0;
     try {
-      const sMatch = result.summary.match(/Total Sheets:\s*(\d+)/i);
-      const mMatch = result.summary.match(/Linear Meters Ordered:\s*([\d.]+)/i);
+      const sMatch = result.summary.match(/Total Sheets:\s*(\d+)/i), mMatch = result.summary.match(/Linear Meters Ordered:\s*([\d.]+)/i);
       if (sMatch) totalSheets = parseInt(sMatch[1], 10);
       if (mMatch) totalMeters = parseFloat(mMatch[1]);
     } catch (e) { alert("System error parsing summary."); return; }
 
-    const baseMaterial = totalMeters * parseFloat(settings.metalCostPerMeter);
-    const baseLabor = totalSheets * parseFloat(settings.laborRatePerSheet);
-    const subtotal = baseMaterial + baseLabor;
-    const markup = subtotal * (parseFloat(settings.markupPercentage) / 100);
-    const preTax = subtotal + markup;
-    const tax = preTax * (parseFloat(settings.taxPercentage) / 100);
-    const finalTotal = preTax + tax;
+    const baseMaterial = totalMeters * parseFloat(settings.metalCostPerMeter), baseLabor = totalSheets * parseFloat(settings.laborRatePerSheet);
+    const subtotal = baseMaterial + baseLabor, markup = subtotal * (parseFloat(settings.markupPercentage) / 100);
+    const preTax = subtotal + markup, tax = preTax * (parseFloat(settings.taxPercentage) / 100), finalTotal = preTax + tax;
 
     const doc = new jsPDF();
     doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.text(settings.companyName, 14, 20);
     doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("Phone: " + settings.abn, 14, 28);
-    
     doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text("INVOICE", 150, 20);
     doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("Date: " + new Date().toLocaleDateString(), 150, 28);
-    
-    doc.setFontSize(12); doc.text("Job Address:", 14, 50);
-    doc.setFontSize(10); doc.text(jobAddress || "Traced from map", 14, 56);
+    doc.setFontSize(12); doc.text("Job Address:", 14, 50); doc.setFontSize(10); doc.text(jobAddress || "Traced from map", 14, 56);
 
     doc.autoTable({
-      startY: 70,
-      head: [['Description', 'Qty', 'Rate', 'Total']],
-      body: [
-        ['Metal Coil Required', totalMeters.toFixed(2) + " m", "$" + settings.metalCostPerMeter, "$" + baseMaterial.toFixed(2)],
-        ['Installation Labor', totalSheets + " sheets", "$" + settings.laborRatePerSheet, "$" + baseLabor.toFixed(2)]
-      ],
-      theme: 'grid', headStyles: { fillColor: [42, 67, 96] } // Using new brand slate
+      startY: 70, head: [['Description', 'Qty', 'Rate', 'Total']],
+      body: [['Metal Coil Required', totalMeters.toFixed(2) + " m", "$" + settings.metalCostPerMeter, "$" + baseMaterial.toFixed(2)], ['Installation Labor', totalSheets + " sheets", "$" + settings.laborRatePerSheet, "$" + baseLabor.toFixed(2)]],
+      theme: 'grid', headStyles: { fillColor: [42, 67, 96] }
     });
 
     const finalY = doc.lastAutoTable.finalY || 100;
@@ -269,16 +250,13 @@ export default function App() {
     doc.text("Subtotal:", 130, finalY + 10); doc.text("$" + subtotal.toFixed(2), 180, finalY + 10, { align: 'right' });
     doc.text("Markup (" + settings.markupPercentage + "%):", 130, finalY + 18); doc.text("$" + markup.toFixed(2), 180, finalY + 18, { align: 'right' });
     doc.text("Tax (" + settings.taxPercentage + "%):", 130, finalY + 26); doc.text("$" + tax.toFixed(2), 180, finalY + 26, { align: 'right' });
-    
-    doc.setFont("helvetica", "bold"); doc.setFontSize(14);
-    doc.text("Total Due:", 130, finalY + 38); doc.text("$" + finalTotal.toFixed(2), 180, finalY + 38, { align: 'right' });
-    
+    doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.text("Total Due:", 130, finalY + 38); doc.text("$" + finalTotal.toFixed(2), 180, finalY + 38, { align: 'right' });
     doc.save("Invoice_" + (jobAddress || 'Job') + ".pdf");
   };
 
   let svgViewBox = "0 0 100 100";
   if (exteriorMeters && exteriorMeters.length > 0) {
-    const xs = exteriorMeters.map(p => p[0]); const ys = exteriorMeters.map(p => p[1]);
+    const xs = exteriorMeters.map(p => p[0]), ys = exteriorMeters.map(p => p[1]);
     svgViewBox = (Math.min(...xs) - 2) + " " + (Math.min(...ys) - 2) + " " + (Math.max(...xs) - Math.min(...xs) + 4) + " " + (Math.max(...ys) - Math.min(...ys) + 4);
   }
 
@@ -288,7 +266,7 @@ export default function App() {
       
       <header>
         <div className="logo-container">
-          <img src="/logo.png" alt="Logo" onError={(e) => {e.target.style.display = 'none'}} />
+          {/* Logo completely removed as requested */}
           <div>
             <h1 className="header-title">SHEET SET</h1>
             <p className="header-subtitle">Job Calculator</p>
@@ -311,10 +289,7 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {savedJobs.map(job => (
                 <div key={job.id} className="job-item" onClick={() => loadJob(job)}>
-                  <div>
-                    <strong>{job.address}</strong>
-                    <small>{job.date}</small>
-                  </div>
+                  <div><strong>{job.address}</strong><small>{job.date}</small></div>
                   <button className="btn btn-danger btn-sm" onClick={(e) => deleteJob(job.id, e)}>Delete</button>
                 </div>
               ))}
@@ -350,9 +325,7 @@ export default function App() {
           <div className="map-container-wrapper">
             {!isReadOnly && (
               <div className="instruction-banner">
-                {mapMode === 'calibrate' 
-                  ? "Click 2 points on a known wall, enter the length below, and hit Apply." 
-                  : !drawnCoords ? "Use the polygon tool in the top right to trace the roof." : "Shape drawn. Click Calculate Roof below."}
+                {mapMode === 'calibrate' ? "Click 2 points on a known wall, enter the length below, and hit Apply." : !drawnCoords ? "Use the polygon tool in the top right to trace the roof." : "Shape drawn. Click Calculate Roof below."}
               </div>
             )}
 
@@ -362,21 +335,15 @@ export default function App() {
                 <SearchControl />
                 <LocateControl />
                 <MapClickHandler active={isCalibrating} onClick={handleMapClick} />
-
                 {isCalibrating && (
                   <>
                     {calibrationPoints.map((pt, i) => <Marker key={i} position={pt} />)}
                     {calibrationPoints.length === 2 && <Polyline positions={calibrationPoints} color="var(--brand-slate)" />}
                   </>
                 )}
-
                 {!isCalibrating && (
                   <FeatureGroup>
-                    <EditControl
-                      position="topright"
-                      onCreated={onCreated} onEdited={onEdited} onDeleted={onDeleted}
-                      draw={{ rectangle: false, circle: false, circlemarker: false, polyline: false, marker: false, polygon: { allowIntersection: false, shapeOptions: { color: 'var(--brand-slate)' } } }}
-                    />
+                    <EditControl position="topright" onCreated={onCreated} onEdited={onEdited} onDeleted={onDeleted} draw={{ rectangle: false, circle: false, circlemarker: false, polyline: false, marker: false, polygon: { allowIntersection: false, shapeOptions: { color: 'var(--brand-slate)' } } }} />
                   </FeatureGroup>
                 )}
               </MapContainer>
@@ -393,18 +360,10 @@ export default function App() {
           {!isReadOnly && (
             <div className="section-padding" style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <div style={{ display: 'flex', gap: '20px' }}>
-                <div className="input-group" style={{ flex: 1 }}>
-                  <label>Pitch: {pitch}°</label>
-                  <input type="range" min="10" max="60" value={pitch} onChange={e => setPitch(e.target.value)} />
-                </div>
-                <div className="input-group" style={{ flex: 1 }}>
-                  <label>Sheet Width: {width}mm</label>
-                  <input type="range" min="500" max="1000" value={width} onChange={e => setWidth(e.target.value)} />
-                </div>
+                <div className="input-group" style={{ flex: 1 }}><label>Pitch: {pitch}°</label><input type="range" min="10" max="60" value={pitch} onChange={e => setPitch(e.target.value)} /></div>
+                <div className="input-group" style={{ flex: 1 }}><label>Sheet Width: {width}mm</label><input type="range" min="500" max="1000" value={width} onChange={e => setWidth(e.target.value)} /></div>
               </div>
-              <button className="btn btn-primary" style={{ width: '100%', padding: '16px', fontSize: '18px' }} onClick={calculateRoof} disabled={loading || !drawnCoords}>
-                {loading ? "⏳ Calculating..." : "Calculate Roof"}
-              </button>
+              <button className="btn btn-primary" style={{ width: '100%', padding: '16px', fontSize: '18px' }} onClick={calculateRoof} disabled={loading || !drawnCoords}>{loading ? "⏳ Calculating..." : "Calculate Roof"}</button>
             </div>
           )}
 
@@ -413,14 +372,8 @@ export default function App() {
               <div className="stats-card">
                 <h3 style={{ marginTop: 0, color: 'var(--brand-slate)' }}>Order Summary</h3>
                 <pre>{result.summary}</pre>
-                
                 <div className="actions-grid">
-                  <button className="btn btn-success" onClick={() => {
-                    const blob = new Blob([result.csv_data], { type: 'text/csv' });
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a'); a.href = url; a.download = 'cut_list.csv'; a.click();
-                  }}>📥 CSV</button>
-                  
+                  <button className="btn btn-success" onClick={() => { const blob = new Blob([result.csv_data], { type: 'text/csv' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'cut_list.csv'; a.click(); }}>📥 CSV</button>
                   <button className="btn btn-primary" onClick={generateInvoice}>🧾 Invoice</button>
                   {!isReadOnly && <button className="btn btn-secondary" onClick={saveJob}>💾 Save Job</button>}
                   <button className="btn btn-secondary" onClick={shareJob}>🔗 Share</button>
@@ -429,13 +382,29 @@ export default function App() {
               </div>
               
               <div className="stats-card">
-                <h3 style={{ marginTop: 0, color: 'var(--brand-slate)' }}>Shop Drawing</h3>
-                <svg viewBox={svgViewBox} width="100%" height="auto" style={{border: '1px solid var(--border-light)', borderRadius: '8px'}}>
-                  <polygon points={exteriorMeters.map(p => p[0] + "," + p[1]).join(' ')} fill="none" stroke="var(--charcoal)" strokeWidth="0.2" />
-                  {result.sheets?.map((sheet, i) => (
-                    <line key={i} x1={sheet.start[0]} y1={sheet.start[1]} x2={sheet.end[0]} y2={sheet.end[1]} stroke="var(--brand-slate)" strokeWidth="0.15" opacity="0.8" />
-                  ))}
-                </svg>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                  <h3 style={{ margin: 0, border: 'none', padding: 0, color: 'var(--brand-slate)' }}>Visualizer</h3>
+                  <div className="mode-toggle" style={{ margin: 0, border: 'none' }}>
+                    <button className={viewMode === '2d' ? 'active' : ''} onClick={() => setViewMode('2d')}>2D Plan</button>
+                    <button className={viewMode === '3d' ? 'active' : ''} onClick={() => setViewMode('3d')}>3D View</button>
+                  </div>
+                </div>
+
+                {viewMode === '2d' ? (
+                  <svg viewBox={svgViewBox} width="100%" height="auto" style={{border: '1px solid var(--border-light)', borderRadius: '8px'}}>
+                    <polygon points={exteriorMeters.map(p => p[0] + "," + p[1]).join(' ')} fill="none" stroke="var(--charcoal)" strokeWidth="0.2" />
+                    {result.sheets?.map((sheet, i) => (<line key={i} x1={sheet.start[0]} y1={sheet.start[1]} x2={sheet.end[0]} y2={sheet.end[1]} stroke="var(--brand-slate)" strokeWidth="0.15" opacity="0.8" />))}
+                  </svg>
+                ) : (
+                  <div style={{ height: '400px', width: '100%', background: '#111', borderRadius: '8px', overflow: 'hidden' }}>
+                    <Canvas camera={{ position: [20, 20, 20], fov: 50 }}>
+                      <ambientLight intensity={0.6} />
+                      <directionalLight position={[10, 10, 10]} intensity={0.8} />
+                      <RoofMesh vertices={result.mesh_vertices} faces={result.mesh_faces} />
+                      <OrbitControls />
+                    </Canvas>
+                  </div>
+                )}
               </div>
             </div>
           )}
