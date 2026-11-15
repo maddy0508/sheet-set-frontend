@@ -42,15 +42,6 @@ header > * { pointer-events: auto; }
 .leaflet-container { background: #000 !important; }
 
 /* Floating Map Elements */
-.floating-search {
-  position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
-  width: 90%; max-width: 400px; z-index: 1000;
-  background: var(--bg-panel); backdrop-filter: blur(15px);
-  border: 1px solid var(--border-glow); border-radius: 30px;
-  box-shadow: 0 0 20px rgba(0, 229, 255, 0.1); display: flex; align-items: center; padding: 0 15px;
-}
-.floating-search input { background: transparent; border: none; color: white; padding: 15px; font-size: 14px; outline: none; flex: 1; }
-
 .floating-toolbar {
   position: absolute; top: 130px; right: 15px; z-index: 1000;
   display: flex; flex-direction: column; gap: 15px;
@@ -82,13 +73,14 @@ header > * { pointer-events: auto; }
   color: white; font-size: 20px; font-weight: 800; padding: 20px;
   display: flex; align-items: center; justify-content: center; gap: 10px;
   box-shadow: 0 0 30px rgba(0, 229, 255, 0.2), inset 0 0 20px rgba(0, 229, 255, 0.1);
-  cursor: pointer; text-transform: uppercase; letter-spacing: 1px;
+  cursor: pointer; text-transform: uppercase; letter-spacing: 1px; transition: 0.2s;
 }
-.btn-draw-main:hover { box-shadow: 0 0 40px rgba(0, 229, 255, 0.4); }
+.btn-draw-main:hover:not(:disabled) { box-shadow: 0 0 40px rgba(0, 229, 255, 0.4); }
+.btn-draw-main:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Results Bottom Sheet (HUD) */
 .hud-sheet {
-  position: absolute; top: 20vh; left: 0; right: 0; bottom: 0; z-index: 2000;
+  position: absolute; top: 10vh; left: 0; right: 0; bottom: 0; z-index: 2000;
   background: var(--bg-body); border-top-left-radius: 30px; border-top-right-radius: 30px;
   box-shadow: 0 -10px 40px rgba(0,0,0,0.8); border-top: 1px solid var(--brand-cyan);
   display: flex; flex-direction: column; overflow: hidden; transition: transform 0.3s ease-out;
@@ -110,7 +102,6 @@ header > * { pointer-events: auto; }
 }
 .data-label { font-size: 11px; color: var(--text-sub); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
 .data-value { font-size: 42px; font-weight: 800; margin-top: 5px; line-height: 1; text-shadow: 0 0 20px rgba(255,255,255,0.2); }
-.data-sub { font-size: 12px; color: var(--text-sub); margin-top: 5px; }
 
 /* Trims Grid */
 .trims-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -144,5 +135,19 @@ header > * { pointer-events: auto; }
 .input-group label { display: block; font-size: 12px; color: var(--text-sub); margin-bottom: 5px; text-transform: uppercase; }
 .input-group input { width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 12px; border-radius: 8px; font-size: 16px; }
 
-/* Hide default Leaflet Draw styling */
-.leaflet-draw { display: none !important; }
+/* --- OVERRIDE LEAFLET DRAW TOOLBAR --- */
+.leaflet-draw-toolbar a {
+  background-color: var(--bg-panel) !important;
+  border: 1px solid var(--border-glow) !important;
+  color: white !important;
+  border-radius: 8px !important;
+  margin-bottom: 5px;
+}
+.leaflet-draw-toolbar a:hover {
+  background-color: rgba(0, 229, 255, 0.2) !important;
+}
+.leaflet-draw-actions a {
+  background-color: var(--bg-panel) !important;
+  color: var(--brand-cyan) !important;
+  border: 1px solid var(--border-glow) !important;
+  }
