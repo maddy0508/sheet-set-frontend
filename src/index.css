@@ -27,12 +27,7 @@ html, body, #root {
 }
 
 /* APP SHELL LAYOUT */
-.container { 
-  display: flex; 
-  flex-direction: column; 
-  height: 100dvh; 
-  width: 100vw; 
-}
+.container { display: flex; flex-direction: column; height: 100dvh; width: 100vw; }
 
 /* 1. FIXED HEADER */
 header { 
@@ -40,33 +35,23 @@ header {
   padding: 15px 20px; 
   background: var(--bg-body);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center;
+  display: flex; justify-content: space-between; align-items: center;
   z-index: 1000;
 }
 .header-title { font-size: 18px; font-weight: 800; letter-spacing: 2px; color: white; }
 .header-subtitle { font-size: 10px; color: var(--brand-cyan); text-transform: uppercase; letter-spacing: 2px; margin-top: 2px; }
-.header-btn { 
-  background: rgba(255,255,255,0.05); border: 1px solid var(--border-glow); 
-  color: white; padding: 8px 12px; border-radius: 8px; font-size: 16px; cursor: pointer;
-}
+.header-btn { background: rgba(255,255,255,0.05); border: 1px solid var(--border-glow); color: white; padding: 8px 12px; border-radius: 8px; font-size: 16px; cursor: pointer; }
 
 /* 2. MAP AREA (Fills remaining space) */
-.map-container-wrapper { 
-  flex: 1; 
-  position: relative; 
-  background: #000; 
-  min-height: 0;
-}
+.map-container-wrapper { flex: 1; position: relative; background: #000; min-height: 0; transition: opacity 0.3s; }
 .leaflet-container { background: #000 !important; }
 
-/* Leaflet Search Bar (Anchored cleanly to top) */
+/* Leaflet Search Bar */
 .leaflet-control-geosearch {
   position: absolute !important;
   top: 15px !important;
   left: 15px !important;
-  right: 60px !important; /* Leave room for toolbar */
+  right: 60px !important; 
   width: auto !important;
   max-width: none !important;
   margin: 0 !important;
@@ -76,63 +61,32 @@ header {
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5) !important;
   z-index: 1000 !important;
 }
-.leaflet-control-geosearch form input {
-  background: transparent !important;
-  color: white !important;
-  border: none !important;
-  font-family: inherit !important;
-  font-size: 14px !important;
-  padding: 12px 16px !important;
-}
-.leaflet-control-geosearch .results {
-  background: var(--bg-panel) !important;
-  color: white !important;
-  border-radius: 10px !important;
-}
+.leaflet-control-geosearch form input { background: transparent !important; color: white !important; border: none !important; font-family: inherit !important; font-size: 14px !important; padding: 12px 16px !important; }
+.leaflet-control-geosearch .results { background: var(--bg-panel) !important; color: white !important; border-radius: 10px !important; }
 
-/* Floating Toolbar (Right side) */
-.floating-toolbar {
-  position: absolute; 
-  top: 15px; 
-  right: 15px; 
-  z-index: 1000;
-  display: flex; 
-  flex-direction: column; 
-  gap: 10px;
-}
-.tool-btn {
-  width: 44px; height: 44px; border-radius: 10px;
-  background: var(--bg-panel); border: 1px solid var(--border-glow); 
-  color: white; font-size: 18px;
-  display: flex; align-items: center; justify-content: center; cursor: pointer;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5); transition: 0.2s;
-}
+/* Floating Toolbar */
+.floating-toolbar { position: absolute; top: 15px; right: 15px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; }
+.tool-btn { width: 44px; height: 44px; border-radius: 10px; background: var(--bg-panel); border: 1px solid var(--border-glow); color: white; font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5); transition: 0.2s; }
 .tool-btn:hover, .tool-btn.active { border-color: var(--brand-cyan); color: var(--brand-cyan); }
 
-/* Hide default Leaflet Draw */
+/* Hide default Leaflet Draw & Zoom */
 .leaflet-draw { display: none !important; }
+.leaflet-control-zoom { display: none !important; }
 
 /* Locate Me Button */
 .leaflet-bottom.leaflet-left { bottom: 20px !important; left: 15px !important; }
-.leaflet-control-zoom { display: none !important; } /* Hide default zoom */
 
 /* 3. BOTTOM SHEET (Inputs & Action) */
 .bottom-sheet {
   flex-shrink: 0;
   background: var(--bg-body);
-  padding: 15px 20px 25px 20px; /* Extra padding bottom for mobile nav bars */
+  padding: 15px 20px 25px 20px; 
   border-top: 1px solid rgba(255, 255, 255, 0.05);
-  display: flex; 
-  flex-direction: column; 
-  gap: 15px;
+  display: flex; flex-direction: column; gap: 15px;
   z-index: 2000;
 }
 
-.scale-pill {
-  align-self: flex-start; background: var(--bg-panel); 
-  padding: 6px 12px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1);
-  font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 8px;
-}
+.scale-pill { align-self: flex-start; background: var(--bg-panel); padding: 6px 12px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
 .scale-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 10px var(--success); }
 
 .input-row { display: flex; gap: 15px; }
@@ -145,20 +99,13 @@ header {
   border: 1px solid var(--brand-cyan); border-radius: 12px;
   color: white; font-size: 18px; font-weight: 800; padding: 16px;
   display: flex; align-items: center; justify-content: center; gap: 10px;
-  box-shadow: 0 0 20px rgba(0, 229, 255, 0.2);
-  cursor: pointer; text-transform: uppercase; letter-spacing: 1px;
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.2); cursor: pointer; text-transform: uppercase; letter-spacing: 1px;
 }
 .btn-draw-main:disabled { opacity: 0.5; cursor: not-allowed; border-color: rgba(255,255,255,0.2); box-shadow: none; }
 
 /* HUD RESULTS SHEET */
-.hud-sheet {
-  position: absolute; top: 10vh; left: 0; right: 0; bottom: 0; z-index: 3000;
-  background: var(--bg-body); border-top-left-radius: 25px; border-top-right-radius: 25px;
-  box-shadow: 0 -10px 40px rgba(0,0,0,0.8); border-top: 1px solid var(--brand-cyan);
-  display: flex; flex-direction: column; overflow: hidden;
-}
+.hud-sheet { position: absolute; top: 10vh; left: 0; right: 0; bottom: 0; z-index: 3000; background: var(--bg-body); border-top-left-radius: 25px; border-top-right-radius: 25px; box-shadow: 0 -10px 40px rgba(0,0,0,0.8); border-top: 1px solid var(--brand-cyan); display: flex; flex-direction: column; overflow: hidden; }
 .hud-scroll-area { flex: 1; overflow-y: auto; padding: 25px; padding-bottom: 100px; }
-
 .hud-header { margin-bottom: 20px; }
 .hud-tag { color: var(--brand-cyan); font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
 .hud-title { font-size: 28px; font-weight: 800; margin: 5px 0; }
@@ -176,17 +123,10 @@ header {
 .trim-title::before { content: ''; width: 10px; height: 2px; background: var(--brand-cyan); }
 .trim-val { font-size: 20px; font-weight: 700; margin-top: 4px; }
 
-.hud-bottom-bar {
-  position: absolute; bottom: 0; left: 0; right: 0; padding: 15px 20px 25px 20px;
-  background: var(--bg-body); border-top: 1px solid rgba(255,255,255,0.1); 
-  display: flex; gap: 10px;
-}
+.hud-bottom-bar { position: absolute; bottom: 0; left: 0; right: 0; padding: 15px 20px 25px 20px; background: var(--bg-body); border-top: 1px solid rgba(255,255,255,0.1); display: flex; gap: 10px; }
 .btn-icon { background: transparent; color: white; border: none; font-size: 11px; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; flex: 1; }
 .btn-icon span { font-size: 18px; }
-.btn-primary-hud {
-  flex: 2; background: var(--brand-cyan); color: #000; font-weight: 800;
-  border-radius: 10px; border: none; font-size: 16px; cursor: pointer;
-}
+.btn-primary-hud { flex: 2; background: var(--brand-cyan); color: #000; font-weight: 800; border-radius: 10px; border: none; font-size: 16px; cursor: pointer; }
 
 /* Modals */
 .modal-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 4000; display: flex; align-items: center; justify-content: center; padding: 20px; }
