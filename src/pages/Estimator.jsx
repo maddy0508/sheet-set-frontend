@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { MapContainer, TileLayer, FeatureGroup, useMap, Marker, Polyline, useMapEvents } from 'react-leaflet';
 import { EditControl } from 'marwan-yasser-react-leaflet-draw';
+import { useLocation } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet-geosearch/dist/geosearch.css';
 import { GeoSearchControl, OpenStreetMapProvider } from 'leaflet-geosearch';
@@ -11,6 +12,22 @@ import RoofMesh from '../RoofMesh';
 import InvoiceForm from '../components/InvoiceForm';
 
 const API_URL = import.meta.env.VITE_API_URL || "https://sheet-set-backend.onrender.com";
+
+// --- THE FIX: Forces Leaflet to recalculate its width when the page changes ---
+function MapResizer() {
+  const map = useMap();
+  const location = useLocation();
+
+  useEffect(() => {
+    // 250ms delay ensures the CSS display:block has finished rendering
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [map, location.pathname]);
+
+  return null;
+}
 
 function SearchControl() {
   const map = useMap();
@@ -205,7 +222,10 @@ export default function Estimator() {
       <div className="map-container-wrapper" style={{ flex: 1, opacity: inputMode === 'manual' ? 0.3 : 1, pointerEvents: inputMode === 'manual' ? 'none' : 'auto' }}>
         <MapContainer center={mapCenter} zoom={19} style={{ height: '100%', width: '100%' }}>
           
-          {/* VERSATILES SATELLITE TILES — CORRECTED URL */}
+          {/* FIX: Recalculates size on navigation */}
+          <MapResizer />
+
+          {/* YOUR PREFERRED GOOGLE SATELLITE MAP */}
           <TileLayer 
             url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}" 
             attribution='&copy; Google'
@@ -392,3 +412,4 @@ export default function Estimator() {
     </div>
   );
 }
+```
