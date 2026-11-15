@@ -5,31 +5,12 @@ import { EditControl } from 'marwan-yasser-react-leaflet-draw';
 import L from 'leaflet';
 import 'leaflet-geosearch/dist/geosearch.css';
 import { GeoSearchControl, OpenStreetMapProvider } from 'leaflet-geosearch';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
-import RoofMesh from '../RoofMesh'; // Adjusted path since we are in the /pages folder now
+import RoofMesh from '../RoofMesh';
+import InvoiceForm from '../components/InvoiceForm';
 
 const API_URL = import.meta.env.VITE_API_URL || "https://sheet-set-backend.onrender.com";
-
-const DEFAULT_PRICING = {
-  metalPerM2: 45.00, cappingPerM: 12.50, gutterPerM: 18.00,
-  labourPerSheet: 35.00, labourFixed: 800.00, markupPercent: 20, gstPercent: 10
-};
-
-function calculateInvoiceTotals(job, pricing) {
-  const metalTotal = job.roofArea_m2 * pricing.metalPerM2;
-  const cappingTotal = (job.hipCapping_m + job.ridgeCapping_m) * pricing.cappingPerM;
-  const gutterTotal = job.eavesGutter_m * pricing.gutterPerM;
-  const materialsSubtotal = metalTotal + cappingTotal + gutterTotal;
-  const materialsWithMarkup = materialsSubtotal * (1 + (pricing.markupPercent / 100));
-  const labourTotal = pricing.labourFixed + (job.totalSheets * pricing.labourPerSheet);
-  const subtotal = materialsWithMarkup + labourTotal;
-  const gst = subtotal * (pricing.gstPercent / 100);
-  const grandTotal = subtotal + gst;
-  return { metalTotal, cappingTotal, gutterTotal, materialsSubtotal, materialsWithMarkup, labourTotal, subtotal, gst, grandTotal };
-}
 
 function SearchControl() {
   const map = useMap();
@@ -90,13 +71,8 @@ export default function Estimator() {
   const [realWorldLength, setRealWorldLength] = useState("");
   const [scaleFactor, setScaleFactor] = useState(1);
 
+  // State to trigger the Invoice Form modal
   const [showInvoice, setShowInvoice] = useState(false);
-  const [invoiceData, setInvoiceData] = useState({
-    invoiceNo: "INV-" + new Date().getFullYear() + "-001",
-    clientName: "", clientAddress: "", clientPhone: "",
-    jobAddress: "Traced from map", notes: "Payment due within 7 days. BSB: 123-456 Acc: 12345678",
-    pricing: { ...DEFAULT_PRICING }
-  });
 
   const drawControlRef = useRef(null);
   const featureGroupRef = useRef(null);
@@ -217,92 +193,11 @@ export default function Estimator() {
     navigator.clipboard.writeText(url).then(() => alert("Share link copied!")).catch(() => prompt("Copy this link:", url));
   };
 
-  const openInvoiceModal = () => {
-    setInvoiceData(prev => ({ ...prev, jobAddress: "Traced from map" }));
-    setShowInvoice(true);
-  };
-
-  const handleInvoiceChange = (e) => {
-    const { name, value } = e.target;
-    if (name.startsWith('price_')) {
-      const key = name.replace('price_', '');
-      setInvoiceData({ ...invoiceData, pricing: { ...invoiceData.pricing, [key]: parseFloat(value) || 0 } });
-    } else {
-      setInvoiceData({ ...invoiceData, [name]: value });
-    }
-  };
-
-  const generateInvoicePDF = () => {
-    if (!result) return;
-    const job = {
-      roofArea_m2: result.roof_area_m2 || 0, totalSheets: result.sheets?.length || 0,
-      totalCoils: result.total_coils || 0, hipCount: result.trims?.hip_count || 0,
-      ridgeCount: result.trims?.ridge_count || 0, hipCapping_m: result.trims?.hip_capping_m || 0,
-      ridgeCapping_m: result.trims?.ridge_capping_m || 0, eavesGutter_m: result.trims?.eaves_gutter_m || 0
-    };
-    const totals = calculateInvoiceTotals(job, invoiceData.pricing);
-    const doc = new jsPDF();
-    
-    doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.text(settings.companyName, 14, 20);
-    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("Phone: " + settings.abn, 14, 28);
-    doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text("INVOICE", 150, 20);
-    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("No: " + invoiceData.invoiceNo, 150, 28);
-    doc.text("Date: " + new Date().toLocaleDateString(), 150, 33);
-    
-    doc.setFontSize(12); doc.text("BILLED TO:", 14, 50);
-    doc.setFontSize(10); doc.text(invoiceData.clientName || "Client Name", 14, 56);
-    doc.text(invoiceData.clientAddress || "Client Address", 14, 61);
-    doc.setFontSize(12); doc.text("JOB LOCATION:", 120, 50);
-    doc.setFontSize(10); doc.text(invoiceData.jobAddress || "Job Address", 120, 56);
-
-    doc.autoTable({
-      startY: 70,
-      head: [['Description', 'Qty', 'Unit', 'Total']],
-      body: [
-        ['Metal Sheeting', `${job.roofArea_m2.toFixed(1)} m²`, `$${invoiceData.pricing.metalPerM2.toFixed(2)}`, `$${totals.metalTotal.toFixed(2)}`],
-        ['Hip Capping', `${job.hipCapping_m.toFixed(1)} m`, `$${invoiceData.pricing.cappingPerM.toFixed(2)}`, `$${(job.hipCapping_m * invoiceData.pricing.cappingPerM).toFixed(2)}`],
-        ['Ridge Capping', `${job.ridgeCapping_m.toFixed(1)} m`, `$${invoiceData.pricing.cappingPerM.toFixed(2)}`, `$${(job.ridgeCapping_m * invoiceData.pricing.cappingPerM).toFixed(2)}`],
-        ['Eaves Gutter', `${job.eavesGutter_m.toFixed(1)} m`, `$${invoiceData.pricing.gutterPerM.toFixed(2)}`, `$${totals.gutterTotal.toFixed(2)}`],
-        ['Labour - Installation', `${job.totalSheets} ea`, `$${invoiceData.pricing.labourPerSheet.toFixed(2)}`, `$${(job.totalSheets * invoiceData.pricing.labourPerSheet).toFixed(2)}`],
-        ['Base Labour Charge', `1 ea`, `$${invoiceData.pricing.labourFixed.toFixed(2)}`, `$${invoiceData.pricing.labourFixed.toFixed(2)}`]
-      ],
-      theme: 'grid', headStyles: { fillColor: [40, 64, 80] }, columnStyles: { 0: { cellWidth: 80 }, 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } }
-    });
-
-    const finalY = doc.lastAutoTable.finalY + 10;
-    doc.setFontSize(11);
-    doc.text("Materials Subtotal:", 130, finalY); doc.text(`$${totals.materialsSubtotal.toFixed(2)}`, 190, finalY, { align: 'right' });
-    doc.text(`Markup (${invoiceData.pricing.markupPercent}%):`, 130, finalY + 8); doc.text(`$${(totals.materialsWithMarkup - totals.materialsSubtotal).toFixed(2)}`, 190, finalY + 8, { align: 'right' });
-    doc.text("Labour Total:", 130, finalY + 16); doc.text(`$${totals.labourTotal.toFixed(2)}`, 190, finalY + 16, { align: 'right' });
-    doc.text("Subtotal:", 130, finalY + 24); doc.text(`$${totals.subtotal.toFixed(2)}`, 190, finalY + 24, { align: 'right' });
-    doc.text(`GST (${invoiceData.pricing.gstPercent}%):`, 130, finalY + 32); doc.text(`$${totals.gst.toFixed(2)}`, 190, finalY + 32, { align: 'right' });
-
-    doc.setFont("helvetica", "bold"); doc.setFontSize(14);
-    doc.text("TOTAL PAYABLE:", 130, finalY + 42); doc.text(`$${totals.grandTotal.toFixed(2)}`, 190, finalY + 42, { align: 'right' });
-
-    doc.setFont("helvetica", "normal"); doc.setFontSize(10);
-    doc.text("Notes:", 14, finalY + 55); doc.text(invoiceData.notes || "Payment due within 7 days.", 14, finalY + 60);
-    doc.save(`Invoice_${invoiceData.invoiceNo}.pdf`);
-  };
-
-  const saveInvoice = () => {
-    const saved = JSON.parse(localStorage.getItem('sheetSetInvoices') || '[]');
-    saved.push({ ...invoiceData, jobData: result });
-    localStorage.setItem('sheetSetInvoices', JSON.stringify(saved));
-    alert("Invoice saved to browser storage.");
-  };
-
   let svgViewBox = "0 0 100 100";
   if (exteriorMeters && exteriorMeters.length > 0) {
     const xs = exteriorMeters.map(p => p[0]), ys = exteriorMeters.map(p => p[1]);
     svgViewBox = (Math.min(...xs) - 2) + " " + (Math.min(...ys) - 2) + " " + (Math.max(...xs) - Math.min(...xs) + 4) + " " + (Math.max(...ys) - Math.min(...ys) + 4);
   }
-
-  const currentTotals = result ? calculateInvoiceTotals({
-    roofArea_m2: result.roof_area_m2 || 0, totalSheets: result.sheets?.length || 0,
-    hipCapping_m: result.trims?.hip_capping_m || 0, ridgeCapping_m: result.trims?.ridge_capping_m || 0,
-    eavesGutter_m: result.trims?.eaves_gutter_m || 0
-  }, invoiceData.pricing) : null;
 
   return (
     <div style={{ height: '100%', width: '100%', position: 'relative', display: 'flex', flexDirection: 'column' }}>
@@ -470,59 +365,24 @@ export default function Estimator() {
             <button className="btn btn-secondary" style={{ flex: 1, padding: '10px', flexDirection: 'column' }} onClick={() => { const blob = new Blob([result.csv_data], { type: 'text/csv' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'cut_list.csv'; a.click(); }}><span style={{fontSize:'18px'}}>📥</span><span style={{fontSize:'10px'}}>CSV</span></button>
             <button className="btn btn-secondary" style={{ flex: 1, padding: '10px', flexDirection: 'column' }} onClick={saveJob}><span style={{fontSize:'18px'}}>💾</span><span style={{fontSize:'10px'}}>Save</span></button>
             <button className="btn btn-secondary" style={{ flex: 1, padding: '10px', flexDirection: 'column' }} onClick={shareJob}><span style={{fontSize:'18px'}}>🔗</span><span style={{fontSize:'10px'}}>Share</span></button>
-            <button className="btn btn-primary" style={{ flex: 2, display: 'flex', gap: '5px', alignItems: 'center', justifyContent: 'center' }} onClick={openInvoiceModal}><span>📄</span> Invoice</button>
+            
+            {/* CREATE INVOICE BUTTON */}
+            <button className="btn btn-primary" style={{ flex: 2, display: 'flex', gap: '5px', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowInvoice(true)}><span>📄</span> Invoice</button>
+            
             <button className="btn btn-secondary" style={{ padding: '10px' }} onClick={() => setShowResults(false)}>✕</button>
           </div>
         </div>
       )}
 
-      {/* INVOICE MODAL */}
+      {/* NEW: INVOICE FORM COMPONENT */}
       {showInvoice && result && (
-        <div className="modal-overlay">
-          <div className="modal-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ margin: 0 }}>Create Invoice</h3>
-              <button style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '20px', cursor: 'pointer' }} onClick={() => setShowInvoice(false)}>✕</button>
-            </div>
-
-            <h4 style={{ color: 'var(--silver-mid)', marginBottom: '10px', fontSize: '13px', textTransform: 'uppercase' }}>1. Client Details</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
-              <div className="input-group"><label>Client Name</label><input type="text" name="clientName" value={invoiceData.clientName} onChange={handleInvoiceChange} /></div>
-              <div className="input-group"><label>Phone</label><input type="text" name="clientPhone" value={invoiceData.clientPhone} onChange={handleInvoiceChange} /></div>
-              <div className="input-group" style={{ gridColumn: 'span 2' }}><label>Billing Address</label><input type="text" name="clientAddress" value={invoiceData.clientAddress} onChange={handleInvoiceChange} /></div>
-            </div>
-
-            <h4 style={{ color: 'var(--silver-mid)', marginBottom: '10px', fontSize: '13px', textTransform: 'uppercase' }}>2. Pricing</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
-              <div className="input-group"><label>Metal ($/m²)</label><input type="number" name="price_metalPerM2" value={invoiceData.pricing.metalPerM2} onChange={handleInvoiceChange} /></div>
-              <div className="input-group"><label>Capping ($/m)</label><input type="number" name="price_cappingPerM" value={invoiceData.pricing.cappingPerM} onChange={handleInvoiceChange} /></div>
-              <div className="input-group"><label>Gutter ($/m)</label><input type="number" name="price_gutterPerM" value={invoiceData.pricing.gutterPerM} onChange={handleInvoiceChange} /></div>
-              <div className="input-group"><label>Labour ($/sheet)</label><input type="number" name="price_labourPerSheet" value={invoiceData.pricing.labourPerSheet} onChange={handleInvoiceChange} /></div>
-            </div>
-
-            <h4 style={{ color: 'var(--silver-mid)', marginBottom: '10px', fontSize: '13px', textTransform: 'uppercase' }}>3. Totals</h4>
-            {currentTotals && (
-              <div style={{ background: 'rgba(0,0,0,0.3)', padding: '15px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #405860' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', fontSize: '14px', color: 'var(--silver-dark)' }}><span>Materials:</span><span>${currentTotals.materialsSubtotal.toFixed(2)}</span></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', fontSize: '14px', color: 'var(--silver-dark)' }}><span>Labour:</span><span>${currentTotals.labourTotal.toFixed(2)}</span></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', fontSize: '14px', color: 'var(--silver-dark)', borderTop: '1px solid #444', paddingTop: '5px' }}><span>Subtotal:</span><span>${currentTotals.subtotal.toFixed(2)}</span></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', fontSize: '14px', color: 'var(--silver-dark)' }}><span>GST (10%):</span><span>${currentTotals.gst.toFixed(2)}</span></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '18px', fontWeight: 'bold', color: 'var(--silver-light)' }}><span>Total:</span><span>${currentTotals.grandTotal.toFixed(2)}</span></div>
-              </div>
-            )}
-
-            <div className="input-group" style={{ marginBottom: '20px' }}>
-              <label>Notes / Payment Terms</label>
-              <textarea name="notes" value={invoiceData.notes} onChange={handleInvoiceChange} style={{ minHeight: '60px' }} />
-            </div>
-
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={saveInvoice}>💾 Save Draft</button>
-              <button className="btn btn-primary" style={{ flex: 1, padding: '12px' }} onClick={generateInvoicePDF}>📄 Download PDF</button>
-            </div>
-          </div>
-        </div>
+        <InvoiceForm 
+          result={result} 
+          pitch={pitch} 
+          onClose={() => setShowInvoice(false)} 
+        />
       )}
+
     </div>
   );
 }
