@@ -13,31 +13,22 @@ import InvoiceForm from '../components/InvoiceForm';
 
 const API_URL = import.meta.env.VITE_API_URL || "https://sheet-set-backend.onrender.com";
 
-// --- BULLETPROOF MAP SIZING FIX ---
 function MapResizer() {
   const map = useMap();
   const location = useLocation();
-
   useEffect(() => {
     const timer = setTimeout(() => map.invalidateSize(), 250);
     const observer = new ResizeObserver(() => map.invalidateSize());
     observer.observe(map.getContainer());
     return () => { clearTimeout(timer); observer.disconnect(); };
   }, [map, location.pathname]);
-
   return null;
 }
 
-// --- NEW: SCALE BAR ---
 function ScaleControl() {
   const map = useMap();
   useEffect(() => {
-    const scale = L.control.scale({ 
-      imperial: false, // Force metric (meters)
-      metric: true,
-      position: 'bottomright',
-      maxWidth: 150
-    });
+    const scale = L.control.scale({ imperial: false, metric: true, position: 'topleft', maxWidth: 150 });
     scale.addTo(map);
     return () => scale.remove();
   }, [map]);
@@ -73,11 +64,7 @@ function LocateControl() {
 }
 
 function MapClickHandler({ activeTool, onClick }) {
-  useMapEvents({ 
-    click(e) { 
-      if (activeTool === 'auto' || activeTool === 'calibrate') onClick(e); 
-    } 
-  });
+  useMapEvents({ click(e) { if (activeTool === 'auto' || activeTool === 'calibrate') onClick(e); } });
   return null;
 }
 
@@ -87,27 +74,21 @@ export default function Estimator() {
   const [viewMode, setViewMode] = useState('2d');
   const [showResults, setShowResults] = useState(false);
   const [activeTool, setActiveTool] = useState('none'); 
-  
   const [pitch, setPitch] = useState(30);
   const [width, setWidth] = useState(760);
   const [manualWidth, setManualWidth] = useState(10);
   const [manualLength, setManualLength] = useState(20);
-  
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [drawnCoords, setDrawnCoords] = useState(null);
   const [exteriorMeters, setExteriorMeters] = useState(null);
   const [mapCenter, setMapCenter] = useState([-27.5598, 151.9507]);
-  
   const [calibrationPoints, setCalibrationPoints] = useState([]);
   const [realWorldLength, setRealWorldLength] = useState("");
   const [scaleFactor, setScaleFactor] = useState(1);
-
   const [showInvoice, setShowInvoice] = useState(false);
-
   const drawControlRef = useRef(null);
   const featureGroupRef = useRef(null);
-  
   const [settings, setSettings] = useState({ companyName: "Mitchell's Metal Roofing", abn: "0435 918 594", metalCostPerMeter: 15.00, laborRatePerSheet: 45.00, markupPercentage: 20.0, taxPercentage: 10.0, overhangMm: 150 });
 
   useEffect(() => {
@@ -131,9 +112,9 @@ export default function Estimator() {
     setActiveTool('none'); 
     setLoading(true);
     try {
-      const res = await axios.get(`${API_URL}/get-footprint?lat=${e.latlng.lat}&lng=${e.latlng.lng}`);
+      const res = await axios.get(`${API_URL}/segment-roof?lat=${e.latlng.lat}&lng=${e.latlng.lng}&zoom=19`);
       if (res.data.error) {
-        alert("Auto-Outline Failed: " + res.data.error);
+        alert("AI Segmentation Failed: " + res.data.error);
       } else {
         if (featureGroupRef.current) featureGroupRef.current.clearLayers();
         const polygon = L.polygon(res.data.polygon.map(p => [p.lat, p.lng]), { color: '#E8E8E8', weight: 3 });
@@ -141,7 +122,7 @@ export default function Estimator() {
         onCreated({ layer: polygon });
       }
     } catch (err) { 
-      alert("Failed to fetch footprint. The OpenStreetMap server might be busy. Please try again or draw manually."); 
+      alert("Failed to analyze roof. The AI model might be warming up. Please try again or draw manually."); 
     }
     setLoading(false);
   };
@@ -241,32 +222,17 @@ export default function Estimator() {
 
   return (
     <div style={{ height: '100%', width: '100%', position: 'relative', display: 'flex', flexDirection: 'column' }}>
-      
       <div className="map-container-wrapper" style={{ flex: 1, opacity: inputMode === 'manual' ? 0.3 : 1, pointerEvents: inputMode === 'manual' ? 'none' : 'auto' }}>
         <MapContainer center={mapCenter} zoom={19} style={{ height: '100%', width: '100%' }}>
-          
           <MapResizer />
-          <ScaleControl /> {/* <--- ADDED THE SCALE BAR HERE */}
-
-          <TileLayer 
-            url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}" 
-            attribution='&copy; Google'
-            maxZoom={22} 
-            maxNativeZoom={20}
-          />
-          
+          <ScaleControl />
+          <TileLayer url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}" attribution='&copy; Google' maxZoom={22} maxNativeZoom={20} />
           <SearchControl /> <LocateControl /> 
           <MapClickHandler activeTool={activeTool} onClick={handleMapClick} />
-          
           {activeTool === 'calibrate' && (<>{calibrationPoints.map((pt, i) => <Marker key={i} position={pt} />)}{calibrationPoints.length === 2 && <Polyline positions={calibrationPoints} color="#E8E8E8" />}</>)}
-          
           {!showResults && (
             <FeatureGroup ref={featureGroupRef}>
-              <EditControl 
-                position="topright" onCreated={onCreated} onEdited={onEdited} onDeleted={onDeleted} 
-                onMounted={(control) => drawControlRef.current = control} 
-                draw={{ rectangle: false, circle: false, circlemarker: false, polyline: false, marker: false, polygon: { allowIntersection: false, shapeOptions: { color: '#E8E8E8', weight: 3 } } }} 
-              />
+              <EditControl position="topright" onCreated={onCreated} onEdited={onEdited} onDeleted={onDeleted} onMounted={(control) => drawControlRef.current = control} draw={{ rectangle: false, circle: false, circlemarker: false, polyline: false, marker: false, polygon: { allowIntersection: false, shapeOptions: { color: '#E8E8E8', weight: 3 } } }} />
             </FeatureGroup>
           )}
         </MapContainer>
@@ -276,6 +242,8 @@ export default function Estimator() {
             <button className={`tool-btn ${activeTool === 'draw' ? 'active' : ''}`} onClick={() => activateTool('draw')} title="Draw">⬡</button>
             <button className={`tool-btn ${activeTool === 'edit' ? 'active' : ''}`} onClick={() => activateTool('edit')} title="Edit">✏️</button>
             <button className={`tool-btn ${activeTool === 'delete' ? 'active' : ''}`} onClick={() => activateTool('delete')} title="Delete" style={{ color: '#ff4444', borderColor: 'rgba(255,68,68,0.3)' }}>🗑️</button>
+            
+            {/* THE AI LIGHTNING TOOL */}
             <button className={`tool-btn ${activeTool === 'auto' ? 'active' : ''}`} onClick={() => activateTool('auto')} title="Auto-Outline" style={{ color: activeTool === 'auto' ? '#ffcc00' : '#00E676', borderColor: activeTool === 'auto' ? '#ffcc00' : 'rgba(0,230,118,0.3)' }}>
               {loading && activeTool === 'auto' ? '⏳' : '⚡'}
             </button>
@@ -284,7 +252,7 @@ export default function Estimator() {
 
         {activeTool === 'auto' && (
           <div style={{ position: 'absolute', top: '20px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.8)', padding: '10px 20px', borderRadius: '20px', zIndex: 2000, color: '#ffcc00', fontWeight: 'bold', border: '1px solid #ffcc00' }}>
-            Tap a building to auto-outline...
+            Tap a building to auto-outline with AI...
           </div>
         )}
       </div>
@@ -342,7 +310,6 @@ export default function Estimator() {
       {showResults && result && exteriorMeters && (
         <div className="hud-sheet" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 3000, background: 'var(--bg-body)', display: 'flex', flexDirection: 'column' }}>
           <div style={{ flex: 1, overflowY: 'auto', padding: '25px', paddingBottom: '100px' }}>
-            
             <div style={{ marginBottom: '20px' }}>
               <div style={{ color: 'var(--silver-mid)', fontSize: '11px', fontWeight: '700', letterSpacing: '2px', textTransform: 'uppercase' }}>TOTAL SHEETS</div>
               <h2 style={{ fontSize: '28px', fontWeight: '800', margin: '5px 0', color: 'var(--silver-light)' }}>
@@ -429,13 +396,8 @@ export default function Estimator() {
       )}
 
       {showInvoice && result && (
-        <InvoiceForm 
-          result={result} 
-          pitch={pitch} 
-          onClose={() => setShowInvoice(false)} 
-        />
+        <InvoiceForm result={result} pitch={pitch} onClose={() => setShowInvoice(false)} />
       )}
-
     </div>
   );
 }
