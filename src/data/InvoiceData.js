@@ -10,7 +10,7 @@ export const getEmptyInvoice = () => ({
   invoice: {
     number: "INV-" + new Date().getFullYear() + "-" + Math.floor(Math.random() * 1000),
     date: new Date().toLocaleDateString(),
-    dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(), // 7 days from now
+    dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString(),
     reference: ""
   },
   client: {
