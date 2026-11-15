@@ -71,7 +71,6 @@ export default function Estimator() {
   const [realWorldLength, setRealWorldLength] = useState("");
   const [scaleFactor, setScaleFactor] = useState(1);
 
-  // State to trigger the Invoice Form modal
   const [showInvoice, setShowInvoice] = useState(false);
 
   const drawControlRef = useRef(null);
@@ -205,7 +204,15 @@ export default function Estimator() {
       {/* MAP AREA */}
       <div className="map-container-wrapper" style={{ flex: 1, opacity: inputMode === 'manual' ? 0.3 : 1, pointerEvents: inputMode === 'manual' ? 'none' : 'auto' }}>
         <MapContainer center={mapCenter} zoom={19} style={{ height: '100%', width: '100%' }}>
-          <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" attribution='Tiles &copy; Esri' maxZoom={19} maxNativeZoom={18} />
+          
+          {/* VERSATILES SATELLITE TILES */}
+          <TileLayer 
+            url="https://tiles.versatiles.org/tiles/satellite-raster/{z}/{x}/{y}" 
+            attribution='&copy; <a href="https://versatiles.org/">VersaTiles</a>'
+            maxZoom={19} 
+            maxNativeZoom={18}
+          />
+          
           <SearchControl /> <LocateControl /> 
           <MapClickHandler activeTool={activeTool} onClick={handleMapClick} />
           
@@ -366,7 +373,6 @@ export default function Estimator() {
             <button className="btn btn-secondary" style={{ flex: 1, padding: '10px', flexDirection: 'column' }} onClick={saveJob}><span style={{fontSize:'18px'}}>💾</span><span style={{fontSize:'10px'}}>Save</span></button>
             <button className="btn btn-secondary" style={{ flex: 1, padding: '10px', flexDirection: 'column' }} onClick={shareJob}><span style={{fontSize:'18px'}}>🔗</span><span style={{fontSize:'10px'}}>Share</span></button>
             
-            {/* CREATE INVOICE BUTTON */}
             <button className="btn btn-primary" style={{ flex: 2, display: 'flex', gap: '5px', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowInvoice(true)}><span>📄</span> Invoice</button>
             
             <button className="btn btn-secondary" style={{ padding: '10px' }} onClick={() => setShowResults(false)}>✕</button>
@@ -374,7 +380,7 @@ export default function Estimator() {
         </div>
       )}
 
-      {/* NEW: INVOICE FORM COMPONENT */}
+      {/* INVOICE FORM COMPONENT */}
       {showInvoice && result && (
         <InvoiceForm 
           result={result} 
