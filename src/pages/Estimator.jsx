@@ -207,10 +207,10 @@ export default function Estimator() {
           
           {/* VERSATILES SATELLITE TILES — CORRECTED URL */}
           <TileLayer 
-            url="https://tiles.versatiles.org/tiles/satellite/{z}/{x}/{y}" 
-            attribution='&copy; <a href="https://versatiles.org/">VersaTiles</a>'
-            maxZoom={19} 
-            maxNativeZoom={18}
+            url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}" 
+            attribution='&copy; Google'
+            maxZoom={22} 
+            maxNativeZoom={20}
           />
           
           <SearchControl /> <LocateControl /> 
