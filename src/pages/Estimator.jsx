@@ -13,17 +13,25 @@ import InvoiceForm from '../components/InvoiceForm';
 
 const API_URL = import.meta.env.VITE_API_URL || "https://sheet-set-backend.onrender.com";
 
-// --- THE FIX: Forces Leaflet to recalculate its width when the page changes ---
+// --- BULLETPROOF MAP SIZING FIX ---
 function MapResizer() {
   const map = useMap();
   const location = useLocation();
 
   useEffect(() => {
-    // 250ms delay ensures the CSS display:block has finished rendering
-    const timer = setTimeout(() => {
+    // Force resize on route change
+    const timer = setTimeout(() => map.invalidateSize(), 250);
+    
+    // Observe physical size changes (e.g., keyboard opening, orientation change)
+    const observer = new ResizeObserver(() => {
       map.invalidateSize();
-    }, 250);
-    return () => clearTimeout(timer);
+    });
+    observer.observe(map.getContainer());
+    
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+    };
   }, [map, location.pathname]);
 
   return null;
@@ -218,14 +226,11 @@ export default function Estimator() {
   return (
     <div style={{ height: '100%', width: '100%', position: 'relative', display: 'flex', flexDirection: 'column' }}>
       
-      {/* MAP AREA */}
       <div className="map-container-wrapper" style={{ flex: 1, opacity: inputMode === 'manual' ? 0.3 : 1, pointerEvents: inputMode === 'manual' ? 'none' : 'auto' }}>
         <MapContainer center={mapCenter} zoom={19} style={{ height: '100%', width: '100%' }}>
           
-          {/* FIX: Recalculates size on navigation */}
           <MapResizer />
 
-          {/* YOUR PREFERRED GOOGLE SATELLITE MAP */}
           <TileLayer 
             url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}" 
             attribution='&copy; Google'
@@ -259,7 +264,6 @@ export default function Estimator() {
         )}
       </div>
 
-      {/* BOTTOM SHEET */}
       {!showResults && (
         <div className="bottom-sheet">
           {mapMode === 'draw' && (
@@ -310,7 +314,6 @@ export default function Estimator() {
         </div>
       )}
 
-      {/* RESULTS HUD */}
       {showResults && result && exteriorMeters && (
         <div className="hud-sheet" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 3000, background: 'var(--bg-body)', display: 'flex', flexDirection: 'column' }}>
           <div style={{ flex: 1, overflowY: 'auto', padding: '25px', paddingBottom: '100px' }}>
@@ -400,7 +403,6 @@ export default function Estimator() {
         </div>
       )}
 
-      {/* INVOICE FORM COMPONENT */}
       {showInvoice && result && (
         <InvoiceForm 
           result={result} 
@@ -412,4 +414,3 @@ export default function Estimator() {
     </div>
   );
 }
-```
