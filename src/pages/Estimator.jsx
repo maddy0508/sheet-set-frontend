@@ -205,9 +205,9 @@ export default function Estimator() {
       <div className="map-container-wrapper" style={{ flex: 1, opacity: inputMode === 'manual' ? 0.3 : 1, pointerEvents: inputMode === 'manual' ? 'none' : 'auto' }}>
         <MapContainer center={mapCenter} zoom={19} style={{ height: '100%', width: '100%' }}>
           
-          {/* VERSATILES SATELLITE TILES */}
+          {/* VERSATILES SATELLITE TILES — CORRECTED URL */}
           <TileLayer 
-            url="https://tiles.versatiles.org/tiles/satellite-raster/{z}/{x}/{y}" 
+            url="https://tiles.versatiles.org/tiles/satellite/{z}/{x}/{y}" 
             attribution='&copy; <a href="https://versatiles.org/">VersaTiles</a>'
             maxZoom={19} 
             maxNativeZoom={18}
