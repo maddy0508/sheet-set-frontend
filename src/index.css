@@ -4,7 +4,8 @@
 
 :root {
   --bg-body: #05080E;
-  --bg-panel: rgba(10, 15, 25, 0.85);
+  --bg-panel: #0A0F19;
+  --bg-card: rgba(26, 91, 130, 0.1);
   --brand-cyan: #00E5FF;
   --brand-blue: #1A5B82;
   --text-main: #FFFFFF;
@@ -15,46 +16,65 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
-html, body, #root { height: 100%; width: 100%; overflow: hidden; }
-
-body {
-  font-family: 'Inter', sans-serif;
+html, body, #root { 
+  height: 100%; 
+  width: 100%; 
+  overflow: hidden; 
   background: var(--bg-body);
   color: var(--text-main);
+  font-family: 'Inter', sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-/* App Container */
-.container { display: flex; flex-direction: column; height: 100dvh; width: 100vw; position: relative; }
-
-/* Futuristic Header */
-header { 
-  position: absolute; top: 0; left: 0; right: 0; padding: 20px; z-index: 1000; 
-  display: flex; justify-content: space-between; align-items: flex-start;
-  background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); pointer-events: none;
+/* APP SHELL LAYOUT */
+.container { 
+  display: flex; 
+  flex-direction: column; 
+  height: 100dvh; 
+  width: 100vw; 
 }
-header > * { pointer-events: auto; }
-.header-title { font-size: 18px; font-weight: 800; letter-spacing: 2px; color: white; text-shadow: 0 0 10px var(--border-glow); }
-.header-subtitle { font-size: 10px; color: var(--brand-cyan); text-transform: uppercase; letter-spacing: 3px; margin-top: 4px; }
 
-/* Map Area */
-.map-container-wrapper { flex: 1; position: relative; background: #000; }
+/* 1. FIXED HEADER */
+header { 
+  flex-shrink: 0;
+  padding: 15px 20px; 
+  background: var(--bg-body);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center;
+  z-index: 1000;
+}
+.header-title { font-size: 18px; font-weight: 800; letter-spacing: 2px; color: white; }
+.header-subtitle { font-size: 10px; color: var(--brand-cyan); text-transform: uppercase; letter-spacing: 2px; margin-top: 2px; }
+.header-btn { 
+  background: rgba(255,255,255,0.05); border: 1px solid var(--border-glow); 
+  color: white; padding: 8px 12px; border-radius: 8px; font-size: 16px; cursor: pointer;
+}
+
+/* 2. MAP AREA (Fills remaining space) */
+.map-container-wrapper { 
+  flex: 1; 
+  position: relative; 
+  background: #000; 
+  min-height: 0;
+}
 .leaflet-container { background: #000 !important; }
 
-/* Move Leaflet search bar down so it doesn't hit the header */
+/* Leaflet Search Bar (Anchored cleanly to top) */
 .leaflet-control-geosearch {
   position: absolute !important;
-  top: 80px !important;
-  left: 50% !important;
-  transform: translateX(-50%) !important;
+  top: 15px !important;
+  left: 15px !important;
+  right: 60px !important; /* Leave room for toolbar */
+  width: auto !important;
+  max-width: none !important;
   margin: 0 !important;
-  width: 90vw !important;
-  max-width: 400px !important;
-  border-radius: 12px !important;
+  border-radius: 10px !important;
   border: 1px solid var(--border-glow) !important;
   background: var(--bg-panel) !important;
-  backdrop-filter: blur(15px);
-  box-shadow: 0 0 20px rgba(0, 229, 255, 0.1) !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5) !important;
+  z-index: 1000 !important;
 }
 .leaflet-control-geosearch form input {
   background: transparent !important;
@@ -64,103 +84,112 @@ header > * { pointer-events: auto; }
   font-size: 14px !important;
   padding: 12px 16px !important;
 }
+.leaflet-control-geosearch .results {
+  background: var(--bg-panel) !important;
+  color: white !important;
+  border-radius: 10px !important;
+}
 
-/* HIDE DEFAULT LEAFLET DRAW TOOLBAR (We will use custom buttons) */
-.leaflet-draw { display: none !important; }
-
-/* Floating Toolbar (Right Side) */
+/* Floating Toolbar (Right side) */
 .floating-toolbar {
-  position: absolute; top: 140px; right: 15px; z-index: 1000;
-  display: flex; flex-direction: column; gap: 10px;
+  position: absolute; 
+  top: 15px; 
+  right: 15px; 
+  z-index: 1000;
+  display: flex; 
+  flex-direction: column; 
+  gap: 10px;
 }
 .tool-btn {
-  width: 44px; height: 44px; border-radius: 12px;
-  background: var(--bg-panel); backdrop-filter: blur(15px);
-  border: 1px solid var(--border-glow); color: white; font-size: 18px;
+  width: 44px; height: 44px; border-radius: 10px;
+  background: var(--bg-panel); border: 1px solid var(--border-glow); 
+  color: white; font-size: 18px;
   display: flex; align-items: center; justify-content: center; cursor: pointer;
-  box-shadow: 0 0 15px rgba(0, 229, 255, 0.1); transition: 0.2s;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5); transition: 0.2s;
 }
-.tool-btn:hover, .tool-btn.active { border-color: var(--brand-cyan); box-shadow: 0 0 20px var(--border-glow); color: var(--brand-cyan); }
+.tool-btn:hover, .tool-btn.active { border-color: var(--brand-cyan); color: var(--brand-cyan); }
 
-/* Bottom Map Controls */
-.map-bottom-controls {
-  position: absolute; bottom: 30px; left: 20px; right: 20px; z-index: 1000;
-  display: flex; flex-direction: column; gap: 15px;
+/* Hide default Leaflet Draw */
+.leaflet-draw { display: none !important; }
+
+/* Locate Me Button */
+.leaflet-bottom.leaflet-left { bottom: 20px !important; left: 15px !important; }
+.leaflet-control-zoom { display: none !important; } /* Hide default zoom */
+
+/* 3. BOTTOM SHEET (Inputs & Action) */
+.bottom-sheet {
+  flex-shrink: 0;
+  background: var(--bg-body);
+  padding: 15px 20px 25px 20px; /* Extra padding bottom for mobile nav bars */
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex; 
+  flex-direction: column; 
+  gap: 15px;
+  z-index: 2000;
 }
+
 .scale-pill {
-  align-self: flex-start; background: var(--bg-panel); backdrop-filter: blur(10px);
-  padding: 8px 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1);
-  font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 8px;
+  align-self: flex-start; background: var(--bg-panel); 
+  padding: 6px 12px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1);
+  font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 8px;
 }
-.scale-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 10px var(--success); }
+.scale-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 10px var(--success); }
+
+.input-row { display: flex; gap: 15px; }
+.input-group { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.input-group label { font-size: 11px; color: var(--text-sub); text-transform: uppercase; font-weight: 600; }
+.input-group input[type="range"] { width: 100%; accent-color: var(--brand-cyan); height: 6px; margin-top: 5px; }
 
 .btn-draw-main {
   background: linear-gradient(135deg, rgba(26, 91, 130, 0.8), rgba(0, 229, 255, 0.2));
-  border: 1px solid var(--brand-cyan); border-radius: 16px;
-  color: white; font-size: 20px; font-weight: 800; padding: 20px;
+  border: 1px solid var(--brand-cyan); border-radius: 12px;
+  color: white; font-size: 18px; font-weight: 800; padding: 16px;
   display: flex; align-items: center; justify-content: center; gap: 10px;
-  box-shadow: 0 0 30px rgba(0, 229, 255, 0.2), inset 0 0 20px rgba(0, 229, 255, 0.1);
-  cursor: pointer; text-transform: uppercase; letter-spacing: 1px; transition: 0.2s;
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.2);
+  cursor: pointer; text-transform: uppercase; letter-spacing: 1px;
 }
-.btn-draw-main:hover:not(:disabled) { box-shadow: 0 0 40px rgba(0, 229, 255, 0.4); }
-.btn-draw-main:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-draw-main:disabled { opacity: 0.5; cursor: not-allowed; border-color: rgba(255,255,255,0.2); box-shadow: none; }
 
-/* Fix "Locate Me" button overlap by moving it up */
-.leaflet-bottom.leaflet-left { bottom: 100px !important; left: 15px !important; }
-
-/* Results Bottom Sheet (HUD) */
+/* HUD RESULTS SHEET */
 .hud-sheet {
-  position: absolute; top: 10vh; left: 0; right: 0; bottom: 0; z-index: 2000;
-  background: var(--bg-body); border-top-left-radius: 30px; border-top-right-radius: 30px;
+  position: absolute; top: 10vh; left: 0; right: 0; bottom: 0; z-index: 3000;
+  background: var(--bg-body); border-top-left-radius: 25px; border-top-right-radius: 25px;
   box-shadow: 0 -10px 40px rgba(0,0,0,0.8); border-top: 1px solid var(--brand-cyan);
-  display: flex; flex-direction: column; overflow: hidden; transition: transform 0.3s ease-out;
+  display: flex; flex-direction: column; overflow: hidden;
 }
 .hud-scroll-area { flex: 1; overflow-y: auto; padding: 25px; padding-bottom: 100px; }
 
 .hud-header { margin-bottom: 20px; }
 .hud-tag { color: var(--brand-cyan); font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
 .hud-title { font-size: 28px; font-weight: 800; margin: 5px 0; }
-.hud-badges { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.hud-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .hud-badge { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; }
 
-/* Big Data Grid */
-.data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px; }
-.data-card {
-  background: linear-gradient(180deg, rgba(26, 91, 130, 0.1) 0%, rgba(10, 15, 25, 0.5) 100%);
-  border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 16px; padding: 20px;
-  box-shadow: inset 0 0 20px rgba(0, 229, 255, 0.05);
-}
-.data-label { font-size: 11px; color: var(--text-sub); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
-.data-value { font-size: 42px; font-weight: 800; margin-top: 5px; line-height: 1; text-shadow: 0 0 20px rgba(255,255,255,0.2); }
+.data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 25px; }
+.data-card { background: var(--bg-card); border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 12px; padding: 15px; }
+.data-label { font-size: 10px; color: var(--text-sub); text-transform: uppercase; font-weight: 700; }
+.data-value { font-size: 32px; font-weight: 800; margin-top: 5px; line-height: 1; }
 
-/* Trims Grid */
 .trims-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.trim-card {
-  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 5px;
-}
+.trim-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 12px; }
 .trim-title { font-size: 11px; color: var(--text-sub); display: flex; align-items: center; gap: 6px; }
-.trim-title::before { content: ''; display: block; width: 12px; height: 2px; background: var(--brand-cyan); }
-.trim-val { font-size: 22px; font-weight: 700; }
+.trim-title::before { content: ''; width: 10px; height: 2px; background: var(--brand-cyan); }
+.trim-val { font-size: 20px; font-weight: 700; margin-top: 4px; }
 
-/* Bottom Sticky Bar */
 .hud-bottom-bar {
-  position: absolute; bottom: 0; left: 0; right: 0; padding: 15px 20px;
-  background: rgba(5, 8, 14, 0.95); backdrop-filter: blur(10px);
-  border-top: 1px solid rgba(255,255,255,0.1); display: flex; gap: 10px;
+  position: absolute; bottom: 0; left: 0; right: 0; padding: 15px 20px 25px 20px;
+  background: var(--bg-body); border-top: 1px solid rgba(255,255,255,0.1); 
+  display: flex; gap: 10px;
 }
-.btn-icon { background: transparent; color: white; border: none; font-size: 12px; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; flex: 1; }
+.btn-icon { background: transparent; color: white; border: none; font-size: 11px; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; flex: 1; }
 .btn-icon span { font-size: 18px; }
 .btn-primary-hud {
   flex: 2; background: var(--brand-cyan); color: #000; font-weight: 800;
-  border-radius: 12px; border: none; font-size: 16px; cursor: pointer;
-  box-shadow: 0 0 20px var(--border-glow);
+  border-radius: 10px; border: none; font-size: 16px; cursor: pointer;
 }
 
 /* Modals */
-.modal-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 20px; }
-.modal-card { background: var(--bg-panel); border: 1px solid var(--border-glow); border-radius: 20px; padding: 25px; width: 100%; max-width: 500px; }
+.modal-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 4000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.modal-card { background: var(--bg-panel); border: 1px solid var(--border-glow); border-radius: 16px; padding: 25px; width: 100%; max-width: 500px; }
 .modal-card h3 { margin-bottom: 20px; font-size: 20px; }
-.input-group { margin-bottom: 15px; }
-.input-group label { display: block; font-size: 12px; color: var(--text-sub); margin-bottom: 5px; text-transform: uppercase; }
-.input-group input { width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 12px; border-radius: 8px; font-size: 16px; }
+.input-group input { width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 10px; border-radius: 6px; font-size: 14px; margin-top: 5px; }
