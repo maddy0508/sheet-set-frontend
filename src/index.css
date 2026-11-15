@@ -41,15 +41,42 @@ header > * { pointer-events: auto; }
 .map-container-wrapper { flex: 1; position: relative; background: #000; }
 .leaflet-container { background: #000 !important; }
 
-/* Floating Map Elements */
+/* Move Leaflet search bar down so it doesn't hit the header */
+.leaflet-control-geosearch {
+  position: absolute !important;
+  top: 80px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  margin: 0 !important;
+  width: 90vw !important;
+  max-width: 400px !important;
+  border-radius: 12px !important;
+  border: 1px solid var(--border-glow) !important;
+  background: var(--bg-panel) !important;
+  backdrop-filter: blur(15px);
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.1) !important;
+}
+.leaflet-control-geosearch form input {
+  background: transparent !important;
+  color: white !important;
+  border: none !important;
+  font-family: inherit !important;
+  font-size: 14px !important;
+  padding: 12px 16px !important;
+}
+
+/* HIDE DEFAULT LEAFLET DRAW TOOLBAR (We will use custom buttons) */
+.leaflet-draw { display: none !important; }
+
+/* Floating Toolbar (Right Side) */
 .floating-toolbar {
-  position: absolute; top: 130px; right: 15px; z-index: 1000;
-  display: flex; flex-direction: column; gap: 15px;
+  position: absolute; top: 140px; right: 15px; z-index: 1000;
+  display: flex; flex-direction: column; gap: 10px;
 }
 .tool-btn {
-  width: 50px; height: 50px; border-radius: 50%;
+  width: 44px; height: 44px; border-radius: 12px;
   background: var(--bg-panel); backdrop-filter: blur(15px);
-  border: 1px solid var(--border-glow); color: white; font-size: 20px;
+  border: 1px solid var(--border-glow); color: white; font-size: 18px;
   display: flex; align-items: center; justify-content: center; cursor: pointer;
   box-shadow: 0 0 15px rgba(0, 229, 255, 0.1); transition: 0.2s;
 }
@@ -57,7 +84,7 @@ header > * { pointer-events: auto; }
 
 /* Bottom Map Controls */
 .map-bottom-controls {
-  position: absolute; bottom: 20px; left: 20px; right: 20px; z-index: 1000;
+  position: absolute; bottom: 30px; left: 20px; right: 20px; z-index: 1000;
   display: flex; flex-direction: column; gap: 15px;
 }
 .scale-pill {
@@ -77,6 +104,9 @@ header > * { pointer-events: auto; }
 }
 .btn-draw-main:hover:not(:disabled) { box-shadow: 0 0 40px rgba(0, 229, 255, 0.4); }
 .btn-draw-main:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Fix "Locate Me" button overlap by moving it up */
+.leaflet-bottom.leaflet-left { bottom: 100px !important; left: 15px !important; }
 
 /* Results Bottom Sheet (HUD) */
 .hud-sheet {
@@ -134,20 +164,3 @@ header > * { pointer-events: auto; }
 .input-group { margin-bottom: 15px; }
 .input-group label { display: block; font-size: 12px; color: var(--text-sub); margin-bottom: 5px; text-transform: uppercase; }
 .input-group input { width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 12px; border-radius: 8px; font-size: 16px; }
-
-/* --- OVERRIDE LEAFLET DRAW TOOLBAR --- */
-.leaflet-draw-toolbar a {
-  background-color: var(--bg-panel) !important;
-  border: 1px solid var(--border-glow) !important;
-  color: white !important;
-  border-radius: 8px !important;
-  margin-bottom: 5px;
-}
-.leaflet-draw-toolbar a:hover {
-  background-color: rgba(0, 229, 255, 0.2) !important;
-}
-.leaflet-draw-actions a {
-  background-color: var(--bg-panel) !important;
-  color: var(--brand-cyan) !important;
-  border: 1px solid var(--border-glow) !important;
-  }
