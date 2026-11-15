@@ -334,7 +334,6 @@ export default function App() {
               </div>
               <div className="data-card">
                 <div className="data-label">ROOF AREA</div>
-                {/* SAFETY CHECK: If backend is old, show 0.0 instead of crashing */}
                 <div className="data-value">{(result.roof_area_m2 || 0).toFixed(1)}<span style={{fontSize:'18px'}}> m²</span></div>
               </div>
               <div className="data-card">
@@ -343,7 +342,6 @@ export default function App() {
               </div>
               <div className="data-card">
                 <div className="data-label">WASTE</div>
-                {/* SAFETY CHECK: If backend is old, show 0.0 instead of crashing */}
                 <div className="data-value">{(result.total_waste_pct || 0).toFixed(1)}<span style={{fontSize:'18px'}}> %</span></div>
               </div>
             </div>
@@ -363,4 +361,7 @@ export default function App() {
                   {result.sheets?.map((sheet, i) => (<line key={i} x1={sheet.start[0]} y1={sheet.start[1]} x2={sheet.end[0]} y2={sheet.end[1]} stroke="rgba(255,255,255,0.4)" strokeWidth="0.1" />))}
                 </svg>
               ) : (
-                <div style={{ height: '200px', width: '100%', display: 'flex', justifyConte
+                <div style={{ height: '200px', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  {result.mesh_vertices ? (
+                    <Canvas camera={{ position: [20, 20, 20], fov: 50 }}>
+               
