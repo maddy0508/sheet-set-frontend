@@ -19,21 +19,28 @@ function MapResizer() {
   const location = useLocation();
 
   useEffect(() => {
-    // Force resize on route change
     const timer = setTimeout(() => map.invalidateSize(), 250);
-    
-    // Observe physical size changes (e.g., keyboard opening, orientation change)
-    const observer = new ResizeObserver(() => {
-      map.invalidateSize();
-    });
+    const observer = new ResizeObserver(() => map.invalidateSize());
     observer.observe(map.getContainer());
-    
-    return () => {
-      clearTimeout(timer);
-      observer.disconnect();
-    };
+    return () => { clearTimeout(timer); observer.disconnect(); };
   }, [map, location.pathname]);
 
+  return null;
+}
+
+// --- NEW: SCALE BAR ---
+function ScaleControl() {
+  const map = useMap();
+  useEffect(() => {
+    const scale = L.control.scale({ 
+      imperial: false, // Force metric (meters)
+      metric: true,
+      position: 'bottomright',
+      maxWidth: 150
+    });
+    scale.addTo(map);
+    return () => scale.remove();
+  }, [map]);
   return null;
 }
 
@@ -121,17 +128,21 @@ export default function Estimator() {
   };
 
   const handleAutoOutlineClick = async (e) => {
-    setActiveTool('none'); setLoading(true);
+    setActiveTool('none'); 
+    setLoading(true);
     try {
       const res = await axios.get(`${API_URL}/get-footprint?lat=${e.latlng.lat}&lng=${e.latlng.lng}`);
-      if (res.data.error) alert(res.data.error);
-      else {
+      if (res.data.error) {
+        alert("Auto-Outline Failed: " + res.data.error);
+      } else {
         if (featureGroupRef.current) featureGroupRef.current.clearLayers();
         const polygon = L.polygon(res.data.polygon.map(p => [p.lat, p.lng]), { color: '#E8E8E8', weight: 3 });
         featureGroupRef.current.addLayer(polygon);
         onCreated({ layer: polygon });
       }
-    } catch (err) { alert("Failed to fetch footprint. Check backend connection."); }
+    } catch (err) { 
+      alert("Failed to fetch footprint. The OpenStreetMap server might be busy. Please try again or draw manually."); 
+    }
     setLoading(false);
   };
 
@@ -194,9 +205,14 @@ export default function Estimator() {
       drawControlRef.current._toolbars.edit._modes.edit.handler.disable();
       drawControlRef.current._toolbars.edit._modes.remove.handler.disable();
     }
-    if (tool === 'draw') drawControlRef.current._toolbars.draw._modes.polygon.handler.enable();
-    else if (tool === 'edit') { drawControlRef.current._toolbars.edit._modes.edit.handler.enable(); alert("Tap the shape to show the drag handles."); }
-    else if (tool === 'delete') drawControlRef.current._toolbars.edit._modes.remove.handler.enable();
+    if (tool === 'draw') {
+      drawControlRef.current._toolbars.draw._modes.polygon.handler.enable();
+    } else if (tool === 'edit') { 
+      drawControlRef.current._toolbars.edit._modes.edit.handler.enable(); 
+      alert("Tap the shape to show the drag handles."); 
+    } else if (tool === 'delete') {
+      drawControlRef.current._toolbars.edit._modes.remove.handler.enable();
+    }
   };
 
   const saveJob = () => {
@@ -230,6 +246,7 @@ export default function Estimator() {
         <MapContainer center={mapCenter} zoom={19} style={{ height: '100%', width: '100%' }}>
           
           <MapResizer />
+          <ScaleControl /> {/* <--- ADDED THE SCALE BAR HERE */}
 
           <TileLayer 
             url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}" 
@@ -259,7 +276,15 @@ export default function Estimator() {
             <button className={`tool-btn ${activeTool === 'draw' ? 'active' : ''}`} onClick={() => activateTool('draw')} title="Draw">⬡</button>
             <button className={`tool-btn ${activeTool === 'edit' ? 'active' : ''}`} onClick={() => activateTool('edit')} title="Edit">✏️</button>
             <button className={`tool-btn ${activeTool === 'delete' ? 'active' : ''}`} onClick={() => activateTool('delete')} title="Delete" style={{ color: '#ff4444', borderColor: 'rgba(255,68,68,0.3)' }}>🗑️</button>
-            <button className={`tool-btn ${activeTool === 'auto' ? 'active' : ''}`} onClick={() => activateTool('auto')} title="Auto-Outline" style={{ color: '#00E676', borderColor: 'rgba(0,230,118,0.3)' }}>⚡</button>
+            <button className={`tool-btn ${activeTool === 'auto' ? 'active' : ''}`} onClick={() => activateTool('auto')} title="Auto-Outline" style={{ color: activeTool === 'auto' ? '#ffcc00' : '#00E676', borderColor: activeTool === 'auto' ? '#ffcc00' : 'rgba(0,230,118,0.3)' }}>
+              {loading && activeTool === 'auto' ? '⏳' : '⚡'}
+            </button>
+          </div>
+        )}
+
+        {activeTool === 'auto' && (
+          <div style={{ position: 'absolute', top: '20px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.8)', padding: '10px 20px', borderRadius: '20px', zIndex: 2000, color: '#ffcc00', fontWeight: 'bold', border: '1px solid #ffcc00' }}>
+            Tap a building to auto-outline...
           </div>
         )}
       </div>
