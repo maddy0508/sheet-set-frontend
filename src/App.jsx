@@ -88,7 +88,6 @@ export default function App() {
   const [realWorldLength, setRealWorldLength] = useState("");
   const [scaleFactor, setScaleFactor] = useState(1);
 
-  // Ref to hold the Leaflet Draw control so we can trigger it manually
   const drawControlRef = useRef(null);
   
   const [settings, setSettings] = useState({
@@ -150,12 +149,17 @@ export default function App() {
     setLoading(false);
   };
 
-  // The magic function to trigger the drawing tool
+  // --- CUSTOM MAP CONTROLS ---
   const startDrawing = () => {
-    if (drawControlRef.current) {
-      // Leaflet Draw internal API to enable polygon drawing
-      drawControlRef.current._toolbars.draw._modes.polygon.handler.enable();
-    }
+    if (drawControlRef.current) drawControlRef.current._toolbars.draw._modes.polygon.handler.enable();
+  };
+
+  const startEditing = () => {
+    if (drawControlRef.current) drawControlRef.current._toolbars.edit._modes.edit.handler.enable();
+  };
+
+  const deleteShape = () => {
+    if (drawControlRef.current) drawControlRef.current._toolbars.edit._modes.remove.handler.enable();
   };
 
   let svgViewBox = "0 0 100 100";
@@ -166,8 +170,6 @@ export default function App() {
 
   return (
     <div className="container">
-      
-      {/* HEADER OVERLAY */}
       <header>
         <div>
           <h1 className="header-title">SHEET SET</h1>
@@ -176,7 +178,6 @@ export default function App() {
         <button className="tool-btn" onClick={() => setShowSettings(true)}>⚙️</button>
       </header>
 
-      {/* SETTINGS MODAL */}
       {showSettings && (
         <div className="modal-overlay">
           <div className="modal-card">
@@ -189,7 +190,6 @@ export default function App() {
         </div>
       )}
 
-      {/* MAP VIEW */}
       <div className="map-container-wrapper">
         <MapContainer center={mapCenter} zoom={19} style={{ height: '100%', width: '100%' }}>
           <TileLayer url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}" maxZoom={22} maxNativeZoom={20} />
@@ -211,7 +211,7 @@ export default function App() {
                 onCreated={onCreated} 
                 onEdited={onEdited} 
                 onDeleted={onDeleted} 
-                onMounted={(control) => drawControlRef.current = control} // <--- SAVES THE CONTROL
+                onMounted={(control) => drawControlRef.current = control}
                 draw={{ 
                   rectangle: false, circle: false, circlemarker: false, polyline: false, marker: false, 
                   polygon: { allowIntersection: false, shapeOptions: { color: '#00E5FF', weight: 3 } }
@@ -221,13 +221,15 @@ export default function App() {
           )}
         </MapContainer>
 
-        {/* FLOATING TOOLBAR */}
-        <div className="floating-toolbar">
-          <button className={`tool-btn ${mapMode === 'draw' ? 'active' : ''}`} onClick={() => { setMapMode('draw'); setIsCalibrating(false); }}>📐</button>
-          <button className={`tool-btn ${mapMode === 'calibrate' ? 'active' : ''}`} onClick={() => { setMapMode('calibrate'); setIsCalibrating(true); setCalibrationPoints([]); }}>📏</button>
-        </div>
+        {/* FLOATING TOOLBAR WITH CUSTOM EDIT/DELETE */}
+        {!isCalibrating && !showResults && (
+          <div className="floating-toolbar">
+            <button className="tool-btn" onClick={startDrawing} title="Draw New Shape">⬡</button>
+            <button className="tool-btn" onClick={startEditing} title="Edit Shape Points">✏️</button>
+            <button className="tool-btn" onClick={deleteShape} title="Delete Shape" style={{ color: '#ff4444', borderColor: 'rgba(255,68,68,0.3)' }}>🗑️</button>
+          </div>
+        )}
 
-        {/* BOTTOM MAP CONTROLS */}
         {!showResults && (
           <div className="map-bottom-controls">
             {mapMode === 'calibrate' && (
@@ -240,16 +242,14 @@ export default function App() {
               </div>
             )}
             
-            <div className="scale-pill">
-              <span className="dot"></span> Scale calibrated · ±2 cm
-            </div>
+            {!isCalibrating && (
+              <div className="scale-pill">
+                <span className="dot"></span> {scaleFactor === 1 ? 'Standard Scale' : 'Scale Calibrated'}
+              </div>
+            )}
 
             {mapMode === 'draw' ? (
-              <button 
-                className="btn-draw-main" 
-                onClick={drawnCoords ? calculateRoof : startDrawing} 
-                disabled={loading}
-              >
+              <button className="btn-draw-main" onClick={drawnCoords ? calculateRoof : startDrawing} disabled={loading}>
                 {loading ? "ANALYZING..." : drawnCoords ? "☑️ Calculate Roof" : "⬡ Draw Roof"}
               </button>
             ) : (
@@ -261,16 +261,13 @@ export default function App() {
         )}
       </div>
 
-      {/* HUD RESULTS SHEET */}
       {showResults && result && exteriorMeters && (
         <div className="hud-sheet">
           <div className="hud-scroll-area">
-            
             <div className="hud-header">
               <div className="hud-tag">TOTAL SHEETS</div>
               <h2 className="hud-title">Hip roof · L-shape</h2>
               <p style={{ color: 'var(--text-sub)', fontSize: '12px' }}>Traced from map</p>
-              
               <div className="hud-badges">
                 <div className="hud-badge">{pitch}° pitch</div>
                 <div className="hud-badge">{width} mm cover</div>
@@ -344,10 +341,8 @@ export default function App() {
                 <div className="trim-val">{result.trims?.eaves_gutter_m || 0} m</div>
               </div>
             </div>
-
           </div>
 
-          {/* STICKY BOTTOM BAR */}
           <div className="hud-bottom-bar">
             <button className="btn-icon" onClick={() => {
               const blob = new Blob([result.csv_data], { type: 'text/csv' });
@@ -360,7 +355,6 @@ export default function App() {
           </div>
         </div>
       )}
-
     </div>
   );
-  }
+    }
