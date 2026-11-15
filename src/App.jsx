@@ -70,8 +70,8 @@ function MapClickHandler({ active, onClick }) {
 }
 
 export default function App() {
-  const [inputMode, setInputMode] = useState('map'); // 'map' or 'manual'
-  const [mapMode, setMapMode] = useState('draw'); // 'draw' or 'calibrate'
+  const [inputMode, setInputMode] = useState('map'); 
+  const [mapMode, setMapMode] = useState('draw'); 
   const [viewMode, setViewMode] = useState('2d');
   const [showResults, setShowResults] = useState(false);
   
@@ -226,7 +226,6 @@ export default function App() {
       {!showResults && (
         <div className="bottom-sheet">
           
-          {/* INPUT MODE TOGGLE */}
           {mapMode === 'draw' && (
             <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', padding: '4px', marginBottom: '5px' }}>
               <button style={{ flex: 1, padding: '8px', background: inputMode === 'map' ? 'var(--brand-cyan)' : 'transparent', color: inputMode === 'map' ? '#000' : '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }} onClick={() => setInputMode('map')}>Draw on Map</button>
@@ -265,7 +264,6 @@ export default function App() {
               </div>
             </>
           ) : (
-            // MANUAL ENTRY UI
             <div style={{ background: 'var(--bg-card)', padding: '15px', borderRadius: '12px', border: '1px solid var(--border-glow)' }}>
               <p style={{ color: 'var(--brand-cyan)', fontSize: '12px', fontWeight: 'bold', marginBottom: '10px' }}>Enter Roof Dimensions (meters)</p>
               <div className="input-row">
@@ -303,7 +301,6 @@ export default function App() {
         </div>
       )}
 
-      {/* ... (Keep the Settings Modal and Results HUD exactly as they are from the previous code) ... */}
       {showSettings && (
         <div className="modal-overlay">
           <div className="modal-card">
@@ -337,7 +334,8 @@ export default function App() {
               </div>
               <div className="data-card">
                 <div className="data-label">ROOF AREA</div>
-                <div className="data-value">{result.roof_area_m2.toFixed(1)}<span style={{fontSize:'18px'}}> m²</span></div>
+                {/* SAFETY CHECK: If backend is old, show 0.0 instead of crashing */}
+                <div className="data-value">{(result.roof_area_m2 || 0).toFixed(1)}<span style={{fontSize:'18px'}}> m²</span></div>
               </div>
               <div className="data-card">
                 <div className="data-label">LINEAR COIL</div>
@@ -345,7 +343,8 @@ export default function App() {
               </div>
               <div className="data-card">
                 <div className="data-label">WASTE</div>
-                <div className="data-value">{result.total_waste_pct.toFixed(1)}<span style={{fontSize:'18px'}}> %</span></div>
+                {/* SAFETY CHECK: If backend is old, show 0.0 instead of crashing */}
+                <div className="data-value">{(result.total_waste_pct || 0).toFixed(1)}<span style={{fontSize:'18px'}}> %</span></div>
               </div>
             </div>
 
@@ -364,4 +363,4 @@ export default function App() {
                   {result.sheets?.map((sheet, i) => (<line key={i} x1={sheet.start[0]} y1={sheet.start[1]} x2={sheet.end[0]} y2={sheet.end[1]} stroke="rgba(255,255,255,0.4)" strokeWidth="0.1" />))}
                 </svg>
               ) : (
-                <div style={{ height: '200px', width: '100%
+                <div style={{ height: '200px', width: '100%', display: 'flex', justifyConte
