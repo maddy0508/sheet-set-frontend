@@ -52,7 +52,8 @@ export default function App() {
   const [viewMode, setViewMode] = useState('2d');
   const [showResults, setShowResults] = useState(false);
   
-  const [isDrawing, setIsDrawing] = useState(false); // Tracks if user is actively dropping points
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [isAutoOutlining, setIsAutoOutlining] = useState(false);
   
   const [pitch, setPitch] = useState(30);
   const [width, setWidth] = useState(760);
@@ -72,6 +73,7 @@ export default function App() {
   const [scaleFactor, setScaleFactor] = useState(1);
 
   const drawControlRef = useRef(null);
+  const featureGroupRef = useRef(null);
   
   const [settings, setSettings] = useState({ companyName: "Mitchell's Metal Roofing", abn: "0435 918 594", metalCostPerMeter: 15.00, laborRatePerSheet: 45.00, markupPercentage: 20.0, taxPercentage: 10.0, overhangMm: 150 });
 
@@ -87,6 +89,26 @@ export default function App() {
     if (!isCalibrating) return;
     if (calibrationPoints.length >= 2) setCalibrationPoints([e.latlng]);
     else setCalibrationPoints([...calibrationPoints, e.latlng]);
+  };
+
+  const handleAutoOutlineClick = async (e) => {
+    if (!isAutoOutlining) return;
+    setIsAutoOutlining(false);
+    setLoading(true);
+    try {
+      const res = await axios.get(`${API_URL}/get-footprint?lat=${e.latlng.lat}&lng=${e.latlng.lng}`);
+      if (res.data.error) {
+        alert(res.data.error);
+      } else {
+        if (featureGroupRef.current) featureGroupRef.current.clearLayers();
+        const polygon = L.polygon(res.data.polygon.map(p => [p.lat, p.lng]), { color: '#00E5FF', weight: 3 });
+        featureGroupRef.current.addLayer(polygon);
+        onCreated({ layer: polygon });
+      }
+    } catch (err) {
+      alert("Failed to fetch footprint. Backend might be asleep.");
+    }
+    setLoading(false);
   };
 
   const applyCalibration = () => {
@@ -143,34 +165,9 @@ export default function App() {
     setLoading(false);
   };
 
-  // --- CUSTOM MAP CONTROLS ---
-  const startDrawing = () => { 
-    if (drawControlRef.current) {
-      drawControlRef.current._toolbars.draw._modes.polygon.handler.enable(); 
-      setIsDrawing(true);
-    }
-  };
-
-  const undoPoint = () => {
-    if (drawControlRef.current && isDrawing) {
-      // This native Leaflet-draw method removes the last dropped point
-      drawControlRef.current._toolbars.draw._modes.polygon.handler.deleteLastVertex();
-    }
-  };
-
-  const startEditing = () => { 
-    if (drawControlRef.current) {
-      drawControlRef.current._toolbars.edit._modes.edit.handler.enable(); 
-      alert("Tap the shape to show the drag handles, then move the corners.");
-    }
-  };
-
-  const deleteShape = () => { 
-    if (drawControlRef.current) {
-      drawControlRef.current._toolbars.edit._modes.remove.handler.enable(); 
-      setIsDrawing(false);
-    }
-  };
+  const startDrawing = () => { if (drawControlRef.current) { drawControlRef.current._toolbars.draw._modes.polygon.handler.enable(); setIsDrawing(true); } };
+  const startEditing = () => { if (drawControlRef.current) { drawControlRef.current._toolbars.edit._modes.edit.handler.enable(); alert("Tap the shape to show the drag handles, then move the corners."); } };
+  const deleteShape = () => { if (drawControlRef.current) { drawControlRef.current._toolbars.edit._modes.remove.handler.enable(); setIsDrawing(false); } };
 
   let svgViewBox = "0 0 100 100";
   if (exteriorMeters && exteriorMeters.length > 0) {
@@ -190,12 +187,24 @@ export default function App() {
 
       <div className="map-container-wrapper" style={{ opacity: inputMode === 'manual' ? 0.3 : 1, pointerEvents: inputMode === 'manual' ? 'none' : 'auto' }}>
         <MapContainer center={mapCenter} zoom={19} style={{ height: '100%', width: '100%' }}>
-          <TileLayer url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}" maxZoom={22} maxNativeZoom={20} />
-          <SearchControl /> <LocateControl /> <MapClickHandler active={isCalibrating} onClick={handleMapClick} />
+          
+          {/* ESRI WORLD IMAGERY TILES (FREE, NO API KEY) */}
+          <TileLayer 
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            attribution='Tiles &copy; Esri'
+            maxZoom={19} 
+            maxNativeZoom={18}
+          />
+          
+          <SearchControl /> <LocateControl /> 
+          
+          <MapClickHandler active={isCalibrating} onClick={handleMapClick} />
+          <MapClickHandler active={isAutoOutlining} onClick={handleAutoOutlineClick} />
+          
           {isCalibrating && (<>{calibrationPoints.map((pt, i) => <Marker key={i} position={pt} />)}{calibrationPoints.length === 2 && <Polyline positions={calibrationPoints} color="#00E5FF" />}</>)}
           
           {!isCalibrating && !showResults && (
-            <FeatureGroup>
+            <FeatureGroup ref={featureGroupRef}>
               <EditControl 
                 position="topright" 
                 onCreated={onCreated} 
@@ -211,12 +220,14 @@ export default function App() {
         {!isCalibrating && !showResults && inputMode === 'map' && (
           <div className="floating-toolbar">
             {isDrawing ? (
-              <button className="tool-btn" onClick={undoPoint} style={{ color: '#ffcc00', borderColor: 'rgba(255,204,0,0.5)' }} title="Undo Last Point">↩️</button>
+              <button className="tool-btn" onClick={() => drawControlRef.current._toolbars.draw._modes.polygon.handler.deleteLastVertex()} style={{ color: '#ffcc00', borderColor: 'rgba(255,204,0,0.5)' }} title="Undo Last Point">↩️</button>
             ) : (
               <button className="tool-btn" onClick={startDrawing} title="Draw New Shape">⬡</button>
             )}
             <button className="tool-btn" onClick={startEditing} title="Edit Corners">✏️</button>
             <button className="tool-btn" onClick={deleteShape} title="Delete Shape" style={{ color: '#ff4444', borderColor: 'rgba(255,68,68,0.3)' }}>🗑️</button>
+            
+            <button className={`tool-btn ${isAutoOutlining ? 'active' : ''}`} onClick={() => setIsAutoOutlining(!isAutoOutlining)} title="Auto-Outline Building" style={{ color: '#00E676', borderColor: 'rgba(0,230,118,0.3)' }}>⚡</button>
           </div>
         )}
       </div>
@@ -336,4 +347,4 @@ export default function App() {
       )}
     </div>
   );
-}
+            }
