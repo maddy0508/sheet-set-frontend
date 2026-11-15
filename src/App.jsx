@@ -9,17 +9,24 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
-import RoofMesh from './RoofMesh'; // <--- IMPORTING THE NEW FILE
+import RoofMesh from './RoofMesh';
 
-const API_URL = import.meta.env.VITE_API_URL || "https://sheet-set-backend.onrender.com"; 
+const API_URL = import.meta.env.VITE_API_URL || "https://sheet-set-backend.onrender.com";
 
 function SearchControl() {
   const map = useMap();
   useEffect(() => {
     const provider = new OpenStreetMapProvider();
-    const searchControl = new GeoSearchControl({ 
-      provider, style: 'bar', showMarker: true, showPopup: false, autoClose: true, 
-      retainZoomLevel: false, animateZoom: true, keepResult: false, searchLabel: 'Search address...',
+    const searchControl = new GeoSearchControl({
+      provider,
+      style: 'bar',
+      showMarker: true,
+      showPopup: false,
+      autoClose: true,
+      retainZoomLevel: false,
+      animateZoom: true,
+      keepResult: false,
+      searchLabel: 'Search address...',
     });
     map.addControl(searchControl);
     return () => map.removeControl(searchControl);
@@ -33,13 +40,17 @@ function LocateControl() {
     const locateControl = L.control({ position: 'bottomleft' });
     locateControl.onAdd = () => {
       const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
-      div.innerHTML = '<button title="Locate Me" style="background:#0A0F19; border:1px solid rgba(0,229,255,0.3); color:#00E5FF; font-size:18px; padding:10px; cursor:pointer; border-radius:10px; box-shadow:0 4px 15px rgba(0,0,0,0.5);">🎯</button>';
+      div.innerHTML = '<button style="background:#0A0F19; border:1px solid rgba(0,229,255,0.3); color:#00E5FF; font-size:18px; padding:10px; cursor:pointer; border-radius:10px; box-shadow:0 4px 15px rgba(0,0,0,0.5);">🎯</button>';
       L.DomEvent.disableClickPropagation(div);
       div.onclick = () => map.locate({ setView: true, maxZoom: 20 });
       return div;
     };
     locateControl.addTo(map);
-    return () => { locateControl.remove(); map.off('locationfound'); map.off('locationerror'); };
+    return () => {
+      locateControl.remove();
+      map.off('locationfound');
+      map.off('locationerror');
+    };
   }, [map]);
   return null;
 }
@@ -50,38 +61,40 @@ function MapClickHandler({ active, onClick }) {
 }
 
 export default function App() {
-  const [inputMode, setInputMode] = useState('map'); 
-  const [mapMode, setMapMode] = useState('draw'); 
+  const [inputMode, setInputMode] = useState('map');
+  const [mapMode, setMapMode] = useState('draw');
   const [viewMode, setViewMode] = useState('2d');
   const [showResults, setShowResults] = useState(false);
-  
   const [pitch, setPitch] = useState(30);
   const [width, setWidth] = useState(760);
   const [manualWidth, setManualWidth] = useState(10);
   const [manualLength, setManualLength] = useState(20);
-  
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [drawnCoords, setDrawnCoords] = useState(null);
   const [exteriorMeters, setExteriorMeters] = useState(null);
-  const [mapCenter, setMapCenter] = useState([-27.5598, 151.9507]); 
-  
+  const [mapCenter, setMapCenter] = useState([-27.5598, 151.9507]);
   const [showSettings, setShowSettings] = useState(false);
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [calibrationPoints, setCalibrationPoints] = useState([]);
   const [realWorldLength, setRealWorldLength] = useState("");
   const [scaleFactor, setScaleFactor] = useState(1);
-
   const drawControlRef = useRef(null);
-  
   const [settings, setSettings] = useState({
-    companyName: "Mitchell's Metal Roofing", abn: "0435 918 594",
-    metalCostPerMeter: 15.00, laborRatePerSheet: 45.00, markupPercentage: 20.0, taxPercentage: 10.0, overhangMm: 150
+    companyName: "Mitchell's Metal Roofing",
+    abn: "0435 918 594",
+    metalCostPerMeter: 15.00,
+    laborRatePerSheet: 45.00,
+    markupPercentage: 20.0,
+    taxPercentage: 10.0,
+    overhangMm: 150
   });
 
   useEffect(() => {
     const savedSettings = localStorage.getItem('sheetSetSettings');
-    if (savedSettings) { try { setSettings({ ...settings, ...JSON.parse(savedSettings) }); } catch (e) {} }
+    if (savedSettings) {
+      try { setSettings({ ...settings, ...JSON.parse(savedSettings) }); } catch (e) {}
+    }
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition((pos) => setMapCenter([pos.coords.latitude, pos.coords.longitude]));
     }
@@ -89,7 +102,7 @@ export default function App() {
 
   const handleMapClick = (e) => {
     if (!isCalibrating) return;
-    if (calibrationPoints.length >= 2) setCalibrationPoints([e.latlng]); 
+    if (calibrationPoints.length >= 2) setCalibrationPoints([e.latlng]);
     else setCalibrationPoints([...calibrationPoints, e.latlng]);
   };
 
@@ -100,14 +113,19 @@ export default function App() {
     const distInMeters = Math.hypot(metersArray[1][0], metersArray[1][1]);
     if (distInMeters <= 0) return;
     setScaleFactor(parseFloat(realWorldLength) / distInMeters);
-    setIsCalibrating(false); setMapMode('draw'); setCalibrationPoints([]); setRealWorldLength("");
+    setIsCalibrating(false);
+    setMapMode('draw');
+    setCalibrationPoints([]);
+    setRealWorldLength("");
   };
 
   const latLngToMeters = (latLngs, applyScale = true) => {
-    const origin = latLngs[0], R = 6371000; 
+    const origin = latLngs[0], R = 6371000;
     return latLngs.map((ll, index) => {
-      const dLat = (ll.lat - origin.lat) * Math.PI / 180, dLng = (ll.lng - origin.lng) * Math.PI / 180;
-      let x = dLng * R * Math.cos(origin.lat * Math.PI / 180), y = dLat * R;
+      const dLat = (ll.lat - origin.lat) * Math.PI / 180;
+      const dLng = (ll.lng - origin.lng) * Math.PI / 180;
+      let x = dLng * R * Math.cos(origin.lat * Math.PI / 180);
+      let y = dLat * R;
       if (applyScale && scaleFactor !== 1) { x = x * scaleFactor; y = y * scaleFactor; }
       return [index === 0 ? 0 : x, index === 0 ? 0 : y];
     });
@@ -128,16 +146,22 @@ export default function App() {
       extMeters = [[0,0], [w,0], [w,l], [0,l]];
     }
 
-    setLoading(true); setResult(null);
+    setLoading(true);
+    setResult(null);
     setExteriorMeters(extMeters);
 
     try {
-      const response = await axios.post(API_URL + "/calculate", { 
-        exterior: extMeters, pitch_deg: pitch, sheet_width_mm: width, overhang_mm: parseFloat(settings.overhangMm) 
+      const response = await axios.post(API_URL + "/calculate", {
+        exterior: extMeters,
+        pitch_deg: pitch,
+        sheet_width_mm: width,
+        overhang_mm: parseFloat(settings.overhangMm)
       });
       setResult(response.data);
       setShowResults(true);
-    } catch (err) { alert("Calculation failed. Backend might be asleep."); }
+    } catch (err) {
+      alert("Calculation failed. Backend might be asleep.");
+    }
     setLoading(false);
   };
 
@@ -177,10 +201,16 @@ export default function App() {
 
           {!isCalibrating && !showResults && (
             <FeatureGroup>
-              <EditControl 
-                position="topright" onCreated={onCreated} onEdited={onEdited} onDeleted={onDeleted} 
+              <EditControl
+                position="topright"
+                onCreated={onCreated}
+                onEdited={onEdited}
+                onDeleted={onDeleted}
                 onMounted={(control) => drawControlRef.current = control}
-                draw={{ rectangle: false, circle: false, circlemarker: false, polyline: false, marker: false, polygon: { allowIntersection: false, shapeOptions: { color: '#00E5FF', weight: 3 } } }} 
+                draw={{
+                  rectangle: false, circle: false, circlemarker: false, polyline: false, marker: false,
+                  polygon: { allowIntersection: false, shapeOptions: { color: '#00E5FF', weight: 3 } }
+                }}
               />
             </FeatureGroup>
           )}
@@ -188,20 +218,19 @@ export default function App() {
 
         {!isCalibrating && !showResults && inputMode === 'map' && (
           <div className="floating-toolbar">
-            <button className="tool-btn" onClick={startDrawing} title="Draw New Shape">⬡</button>
-            <button className="tool-btn" onClick={startEditing} title="Edit Shape Points">✏️</button>
-            <button className="tool-btn" onClick={deleteShape} title="Delete Shape" style={{ color: '#ff4444', borderColor: 'rgba(255,68,68,0.3)' }}>🗑️</button>
+            <button className="tool-btn" onClick={startDrawing}>⬡</button>
+            <button className="tool-btn" onClick={startEditing}>✏️</button>
+            <button className="tool-btn" onClick={deleteShape} style={{ color: '#ff4444', borderColor: 'rgba(255,68,68,0.3)' }}>🗑️</button>
           </div>
         )}
       </div>
 
       {!showResults && (
         <div className="bottom-sheet">
-          
           {mapMode === 'draw' && (
             <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', padding: '4px', marginBottom: '5px' }}>
-              <button style={{ flex: 1, padding: '8px', background: inputMode === 'map' ? 'var(--brand-cyan)' : 'transparent', color: inputMode === 'map' ? '#000' : '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }} onClick={() => setInputMode('map')}>Draw on Map</button>
-              <button style={{ flex: 1, padding: '8px', background: inputMode === 'manual' ? 'var(--brand-cyan)' : 'transparent', color: inputMode === 'manual' ? '#000' : '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }} onClick={() => setInputMode('manual')}>Manual Entry</button>
+              <button style={{ flex: 1, padding: '8px', background: inputMode === 'map' ? 'var(--brand-cyan)' : 'transparent', color: inputMode === 'map' ? '#000' : '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold' }} onClick={() => setInputMode('map')}>Draw on Map</button>
+              <button style={{ flex: 1, padding: '8px', background: inputMode === 'manual' ? 'var(--brand-cyan)' : 'transparent', color: inputMode === 'manual' ? '#000' : '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold' }} onClick={() => setInputMode('manual')}>Manual Entry</button>
             </div>
           )}
 
@@ -210,7 +239,7 @@ export default function App() {
               <span style={{ color: 'var(--brand-cyan)', fontWeight: 'bold' }}>Enter Real Length (m):</span>
               <div style={{ display: 'flex', gap: '10px' }}>
                 <input type="number" placeholder="e.g. 10" value={realWorldLength} onChange={e => setRealWorldLength(e.target.value)} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '10px', borderRadius: '6px', width: '100px' }} />
-                <button style={{ background: 'var(--brand-cyan)', color: '#000', border: 'none', padding: '10px 15px', borderRadius: '6px', fontWeight: 'bold', flex: 1 }} onClick={applyCalibration}>Apply Calibration</button>
+                <button style={{ background: 'var(--brand-cyan)', color: '#000', border: 'none', padding: '10px 15px', borderRadius: '6px', fontWeight: 'bold', flex: 1 }} onClick={applyCalibration}>Apply</button>
               </div>
             </div>
           ) : inputMode === 'map' ? (
@@ -219,7 +248,6 @@ export default function App() {
                 <div className="scale-pill"><span className="dot"></span> {scaleFactor === 1 ? 'Standard Scale' : 'Scale Calibrated'}</div>
                 <button style={{ background: 'transparent', color: 'var(--text-sub)', border: 'none', fontSize: '12px', textDecoration: 'underline' }} onClick={() => { setMapMode('calibrate'); setIsCalibrating(true); setCalibrationPoints([]); }}>Calibrate Map</button>
               </div>
-              
               <div className="input-row">
                 <div className="input-group">
                   <label>Pitch: {pitch}°</label>
@@ -237,11 +265,11 @@ export default function App() {
               <div className="input-row">
                 <div className="input-group">
                   <label>Width (m)</label>
-                  <input type="number" value={manualWidth} onChange={e => setManualWidth(e.target.value)} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '12px', borderRadius: '6px', fontSize: '16px' }} />
+                  <input type="number" value={manualWidth} onChange={e => setManualWidth(e.target.value)} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '12px', borderRadius: '6px' }} />
                 </div>
                 <div className="input-group">
                   <label>Length (m)</label>
-                  <input type="number" value={manualLength} onChange={e => setManualLength(e.target.value)} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '12px', borderRadius: '6px', fontSize: '16px' }} />
+                  <input type="number" value={manualLength} onChange={e => setManualLength(e.target.value)} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '12px', borderRadius: '6px' }} />
                 </div>
               </div>
               <div className="input-row" style={{ marginTop: '10px' }}>
@@ -262,9 +290,7 @@ export default function App() {
               {loading ? "ANALYZING..." : "☑️ Calculate Roof"}
             </button>
           ) : (
-            <button className="btn-draw-main" style={{ borderColor: 'var(--text-sub)', color: 'var(--text-sub)', boxShadow: 'none' }} onClick={() => { setMapMode('draw'); setIsCalibrating(false); }}>
-              Cancel Calibration
-            </button>
+            <button className="btn-draw-main" style={{ borderColor: 'var(--text-sub)', color: 'var(--text-sub)' }} onClick={() => { setMapMode('draw'); setIsCalibrating(false); }}>Cancel Calibration</button>
           )}
         </div>
       )}
@@ -273,8 +299,14 @@ export default function App() {
         <div className="modal-overlay">
           <div className="modal-card">
             <h3>Settings</h3>
-            <div className="input-group"><label>Company Name</label><input type="text" value={settings.companyName} onChange={e => setSettings({...settings, companyName: e.target.value})} /></div>
-            <div className="input-group"><label>Phone</label><input type="text" value={settings.abn} onChange={e => setSettings({...settings, abn: e.target.value})} /></div>
+            <div className="input-group">
+              <label>Company Name</label>
+              <input type="text" value={settings.companyName} onChange={e => setSettings({ ...settings, companyName: e.target.value })} />
+            </div>
+            <div className="input-group">
+              <label>Phone</label>
+              <input type="text" value={settings.abn} onChange={e => setSettings({ ...settings, abn: e.target.value })} />
+            </div>
             <button className="btn-primary-hud" style={{ padding: '15px', width: '100%', marginTop: '15px' }} onClick={() => { localStorage.setItem('sheetSetSettings', JSON.stringify(settings)); setShowSettings(false); }}>Save</button>
             <button className="btn-icon" style={{ color: 'var(--text-sub)', width: '100%', marginTop: '10px' }} onClick={() => setShowSettings(false)}>Cancel</button>
           </div>
@@ -287,7 +319,6 @@ export default function App() {
             <div className="hud-header">
               <div className="hud-tag">TOTAL SHEETS</div>
               <h2 className="hud-title">Hip roof · L-shape</h2>
-              <p style={{ color: 'var(--text-sub)', fontSize: '12px' }}>{inputMode === 'map' ? 'Traced from map' : 'Manual Dimensions'}</p>
               <div className="hud-badges">
                 <div className="hud-badge">{pitch}° pitch</div>
                 <div className="hud-badge">{width} mm cover</div>
@@ -302,31 +333,33 @@ export default function App() {
               </div>
               <div className="data-card">
                 <div className="data-label">ROOF AREA</div>
-                <div className="data-value">{(result.roof_area_m2 || 0).toFixed(1)}<span style={{fontSize:'18px'}}> m²</span></div>
+                <div className="data-value">{(result.roof_area_m2 || 0).toFixed(1)}<span style={{ fontSize: '18px' }}> m²</span></div>
               </div>
               <div className="data-card">
                 <div className="data-label">LINEAR COIL</div>
-                <div className="data-value">{result.summary.match(/Ordered: ([\d.]+)m/)?.[1] || 0}<span style={{fontSize:'18px'}}> m</span></div>
+                <div className="data-value">{result.summary.match(/Ordered: ([\d.]+)m/)?.[1] || 0}<span style={{ fontSize: '18px' }}> m</span></div>
               </div>
               <div className="data-card">
                 <div className="data-label">WASTE</div>
-                <div className="data-value">{(result.total_waste_pct || 0).toFixed(1)}<span style={{fontSize:'18px'}}> %</span></div>
+                <div className="data-value">{(result.total_waste_pct || 0).toFixed(1)}<span style={{ fontSize: '18px' }}> %</span></div>
               </div>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
               <h3 style={{ fontSize: '16px' }}>Measurement</h3>
               <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '3px' }}>
-                <button style={{ padding: '5px 15px', background: viewMode === '2d' ? 'var(--brand-cyan)' : 'transparent', color: viewMode === '2d' ? '#000' : '#fff', border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }} onClick={() => setViewMode('2d')}>2D</button>
-                <button style={{ padding: '5px 15px', background: viewMode === '3d' ? 'var(--brand-cyan)' : 'transparent', color: viewMode === '3d' ? '#000' : '#fff', border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }} onClick={() => setViewMode('3d')}>3D</button>
+                <button style={{ padding: '5px 15px', background: viewMode === '2d' ? 'var(--brand-cyan)' : 'transparent', color: viewMode === '2d' ? '#000' : '#fff', border: 'none', borderRadius: '5px', fontWeight: 'bold' }} onClick={() => setViewMode('2d')}>2D</button>
+                <button style={{ padding: '5px 15px', background: viewMode === '3d' ? 'var(--brand-cyan)' : 'transparent', color: viewMode === '3d' ? '#000' : '#fff', border: 'none', borderRadius: '5px', fontWeight: 'bold' }} onClick={() => setViewMode('3d')}>3D</button>
               </div>
             </div>
 
-            <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: '16px', padding: '15px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '25px' }}>
+            <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: '16px', padding: '15px', marginBottom: '25px' }}>
               {viewMode === '2d' ? (
-                <svg viewBox={svgViewBox} width="100%" height="200" style={{display: 'block'}}>
+                <svg viewBox={svgViewBox} width="100%" height="200">
                   <polygon points={exteriorMeters.map(p => p[0] + "," + p[1]).join(' ')} fill="rgba(0, 229, 255, 0.05)" stroke="#00E5FF" strokeWidth="0.3" />
-                  {result.sheets?.map((sheet, i) => (<line key={i} x1={sheet.start[0]} y1={sheet.start[1]} x2={sheet.end[0]} y2={sheet.end[1]} stroke="rgba(255,255,255,0.4)" strokeWidth="0.1" />))}
+                  {result.sheets?.map((sheet, i) => (
+                    <line key={i} x1={sheet.start[0]} y1={sheet.start[1]} x2={sheet.end[0]} y2={sheet.end[1]} stroke="rgba(255,255,255,0.4)" strokeWidth="0.1" />
+                  ))}
                 </svg>
               ) : (
                 <div style={{ height: '200px', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -337,7 +370,9 @@ export default function App() {
                       <RoofMesh vertices={result.mesh_vertices} faces={result.mesh_faces} />
                       <OrbitControls />
                     </Canvas>
-                  ) : <p style={{ color: 'var(--text-sub)' }}>Update backend for 3D</p>}
+                  ) : (
+                    <p style={{ color: 'var(--text-sub)' }}>Update backend for 3D</p>
+                  )}
                 </div>
               )}
             </div>
@@ -352,4 +387,32 @@ export default function App() {
                 <div className="trim-title">Hip capping</div>
                 <div className="trim-val">{(result.trims && result.trims.hip_capping_m) || 0} m</div>
               </div>
-             
+              <div className="trim-card">
+                <div className="trim-title">Valley capping</div>
+                <div className="trim-val">{(result.trims && result.trims.valley_capping_m) || 0} m</div>
+              </div>
+              <div className="trim-card">
+                <div className="trim-title">Eaves / gutter</div>
+                <div className="trim-val">{(result.trims && result.trims.eaves_gutter_m) || 0} m</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="hud-bottom-bar">
+            <button className="btn-icon" onClick={() => {
+              const blob = new Blob([result.csv_data], { type: 'text/csv' });
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = 'cut_list.csv';
+              a.click();
+            }}><span>📥</span>CSV</button>
+            <button className="btn-icon"><span>💾</span>Save</button>
+            <button className="btn-icon"><span>🔗</span>Share</button>
+            <button className="btn-primary-hud" onClick={() => setShowResults(false)}>Results</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
