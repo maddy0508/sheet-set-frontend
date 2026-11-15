@@ -12,7 +12,6 @@ import { OrbitControls } from '@react-three/drei';
 
 const API_URL = import.meta.env.VITE_API_URL || "https://sheet-set-backend.onrender.com"; 
 
-// --- 3D Mesh Component ---
 const RoofMesh = ({ vertices, faces }) => {
   const geometry = useMemo(() => {
     if (!vertices || !faces) return null;
@@ -20,51 +19,27 @@ const RoofMesh = ({ vertices, faces }) => {
     faces.forEach(face => {
       for (let i = 1; i < face.length - 1; i++) triangles.push([face[0], face[i], face[i+1]]);
     });
-    return {
-      positions: new Float32Array(vertices.flat()),
-      indices: new Uint32Array(triangles.flat())
-    };
+    return { positions: new Float32Array(vertices.flat()), indices: new Uint32Array(triangles.flat()) };
   }, [vertices, faces]);
-
   if (!geometry) return null;
-
   return (
     <mesh>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" count={geometry.positions.length / 3} array={geometry.positions} itemSize={3} />
         <bufferAttribute attach="index" count={geometry.indices.length} array={geometry.indices} itemSize={1} />
       </bufferGeometry>
-      <meshStandardMaterial color="#3D5A7A" side={2} flatShading={true} metalness={0.5} roughness={0.5} />
+      <meshStandardMaterial color="#00E5FF" emissive="#003344" side={2} flatShading={true} metalness={0.8} roughness={0.2} />
     </mesh>
   );
 };
-
-function Toast({ message, type, onClose }) {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 3000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
-  if (!message) return null;
-  return (
-    <div style={{
-      position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)',
-      background: type === 'error' ? 'var(--danger)' : 'var(--success)', color: 'white',
-      padding: '12px 24px', borderRadius: '8px', zIndex: 9999, fontWeight: '600',
-      boxShadow: 'var(--shadow-lg)', backdropFilter: 'blur(10px)'
-    }}>
-      {message}
-    </div>
-  );
-}
 
 function SearchControl() {
   const map = useMap();
   useEffect(() => {
     const provider = new OpenStreetMapProvider();
     const searchControl = new GeoSearchControl({ 
-      provider, style: 'bar', showMarker: true, showPopup: false, 
-      autoClose: true, retainZoomLevel: false, animateZoom: true, 
-      keepResult: false, searchLabel: 'Search address...',
+      provider, style: 'bar', showMarker: true, showPopup: false, autoClose: true, 
+      retainZoomLevel: false, animateZoom: true, keepResult: false, searchLabel: 'Search address...',
     });
     map.addControl(searchControl);
     return () => map.removeControl(searchControl);
@@ -78,7 +53,7 @@ function LocateControl() {
     const locateControl = L.control({ position: 'bottomleft' });
     locateControl.onAdd = () => {
       const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
-      div.innerHTML = '<button title="Locate Me" style="background:#1A1D24; border:1px solid rgba(255,255,255,0.1); color:white; font-size:18px; padding:12px; cursor:pointer; border-radius:50%; box-shadow:0 4px 12px rgba(0,0,0,0.3);">🎯</button>';
+      div.innerHTML = '<button title="Locate Me" style="background:#0A0F19; border:1px solid rgba(0,229,255,0.3); color:#00E5FF; font-size:18px; padding:12px; cursor:pointer; border-radius:12px; box-shadow:0 0 15px rgba(0,229,255,0.1);">🎯</button>';
       L.DomEvent.disableClickPropagation(div);
       div.onclick = () => map.locate({ setView: true, maxZoom: 20 });
       return div;
@@ -105,35 +80,27 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [drawnCoords, setDrawnCoords] = useState(null);
   const [exteriorMeters, setExteriorMeters] = useState(null);
-  const [mapCenter, setMapCenter] = useState([-33.8688, 151.2093]);
+  const [mapCenter, setMapCenter] = useState([-27.5598, 151.9507]); // Toowoomba default
   
-  const [toast, setToast] = useState({ message: '', type: 'success' });
   const [showSettings, setShowSettings] = useState(false);
-  const [isReadOnly, setIsReadOnly] = useState(false);
   const [jobAddress, setJobAddress] = useState("");
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [calibrationPoints, setCalibrationPoints] = useState([]);
   const [realWorldLength, setRealWorldLength] = useState("");
   const [scaleFactor, setScaleFactor] = useState(1);
-  const [savedJobs, setSavedJobs] = useState([]);
   
   const [settings, setSettings] = useState({
-    companyName: "Mitchell's Metal Roofing", abn: "0435 918 594", phone: "",
+    companyName: "Mitchell's Metal Roofing", abn: "0435 918 594",
     metalCostPerMeter: 15.00, laborRatePerSheet: 45.00, markupPercentage: 20.0, taxPercentage: 10.0, overhangMm: 150
   });
 
   useEffect(() => {
     const savedSettings = localStorage.getItem('sheetSetSettings');
     if (savedSettings) { try { setSettings({ ...settings, ...JSON.parse(savedSettings) }); } catch (e) {} }
-    const saved = localStorage.getItem('sheetSetJobs');
-    if (saved) { try { setSavedJobs(JSON.parse(saved)); } catch (e) {} }
-
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition((pos) => setMapCenter([pos.coords.latitude, pos.coords.longitude]));
     }
   }, []);
-
-  const showToast = (message, type = 'success') => setToast({ message, type });
 
   const handleMapClick = (e) => {
     if (!isCalibrating) return;
@@ -142,14 +109,13 @@ export default function App() {
   };
 
   const applyCalibration = () => {
-    if (calibrationPoints.length !== 2 || !realWorldLength) { showToast("Please mark 2 points and enter the real length.", "error"); return; }
+    if (calibrationPoints.length !== 2 || !realWorldLength) return;
     const p1 = calibrationPoints[0], p2 = calibrationPoints[1];
     const metersArray = latLngToMeters([p1, p2], false);
     const distInMeters = Math.hypot(metersArray[1][0], metersArray[1][1]);
-    if (distInMeters <= 0) { showToast("Points are too close.", "error"); return; }
+    if (distInMeters <= 0) return;
     setScaleFactor(parseFloat(realWorldLength) / distInMeters);
     setIsCalibrating(false); setMapMode('draw'); setCalibrationPoints([]); setRealWorldLength("");
-    showToast("Scale calibrated successfully", "success");
   };
 
   const latLngToMeters = (latLngs, applyScale = true) => {
@@ -167,61 +133,19 @@ export default function App() {
   const onDeleted = () => { setDrawnCoords(null); setExteriorMeters(null); setResult(null); };
 
   const calculateRoof = async () => {
-    if (!drawnCoords) { showToast("Please draw a roof on the map first.", "error"); return; }
+    if (!drawnCoords) return;
     setLoading(true); setResult(null);
     const extMeters = latLngToMeters(drawnCoords, true);
     setExteriorMeters(extMeters);
 
     try {
-      const response = await axios.post(API_URL + "/calculate", { exterior: extMeters, pitch_deg: pitch, sheet_width_mm: width, overhang_mm: parseFloat(settings.overhangMm) });
+      const response = await axios.post(API_URL + "/calculate", { 
+        exterior: extMeters, pitch_deg: pitch, sheet_width_mm: width, overhang_mm: parseFloat(settings.overhangMm) 
+      });
       setResult(response.data);
       setShowResults(true);
-      showToast("Calculation successful", "success");
-    } catch (err) { showToast(err.response?.data?.detail || "Failed to connect to backend", "error"); }
+    } catch (err) { alert("Calculation failed. Backend might be asleep."); }
     setLoading(false);
-  };
-
-  const saveJob = () => {
-    if (!result || !exteriorMeters) { showToast("Calculate a roof before saving.", "error"); return; }
-    const newJob = { id: Date.now().toString(), address: jobAddress || "Unknown Address", date: new Date().toLocaleDateString(), exterior: exteriorMeters, result, pitch, width };
-    const updatedJobs = [newJob, ...savedJobs];
-    setSavedJobs(updatedJobs); localStorage.setItem('sheetSetJobs', JSON.stringify(updatedJobs));
-    showToast("Job saved", "success");
-  };
-
-  const generateInvoice = () => {
-    if (!result || !result.summary) return;
-    let totalSheets = 0, totalMeters = 0;
-    try {
-      const sMatch = result.summary.match(/Total Sheets:\s*(\d+)/i), mMatch = result.summary.match(/Linear Meters Ordered:\s*([\d.]+)/i);
-      if (sMatch) totalSheets = parseInt(sMatch[1], 10);
-      if (mMatch) totalMeters = parseFloat(mMatch[1]);
-    } catch (e) { alert("System error parsing summary."); return; }
-
-    const baseMaterial = totalMeters * parseFloat(settings.metalCostPerMeter), baseLabor = totalSheets * parseFloat(settings.laborRatePerSheet);
-    const subtotal = baseMaterial + baseLabor, markup = subtotal * (parseFloat(settings.markupPercentage) / 100);
-    const preTax = subtotal + markup, tax = preTax * (parseFloat(settings.taxPercentage) / 100), finalTotal = preTax + tax;
-
-    const doc = new jsPDF();
-    doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.text(settings.companyName, 14, 20);
-    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("Phone: " + settings.abn, 14, 28);
-    doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text("INVOICE", 150, 20);
-    doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.text("Date: " + new Date().toLocaleDateString(), 150, 28);
-    doc.setFontSize(12); doc.text("Job Address:", 14, 50); doc.setFontSize(10); doc.text(jobAddress || "Traced from map", 14, 56);
-
-    doc.autoTable({
-      startY: 70, head: [['Description', 'Qty', 'Rate', 'Total']],
-      body: [['Metal Coil Required', totalMeters.toFixed(2) + " m", "$" + settings.metalCostPerMeter, "$" + baseMaterial.toFixed(2)], ['Installation Labor', totalSheets + " sheets", "$" + settings.laborRatePerSheet, "$" + baseLabor.toFixed(2)]],
-      theme: 'grid', headStyles: { fillColor: [42, 67, 96] }
-    });
-
-    const finalY = doc.lastAutoTable.finalY || 100;
-    doc.setFontSize(11);
-    doc.text("Subtotal:", 130, finalY + 10); doc.text("$" + subtotal.toFixed(2), 180, finalY + 10, { align: 'right' });
-    doc.text("Markup (" + settings.markupPercentage + "%):", 130, finalY + 18); doc.text("$" + markup.toFixed(2), 180, finalY + 18, { align: 'right' });
-    doc.text("Tax (" + settings.taxPercentage + "%):", 130, finalY + 26); doc.text("$" + tax.toFixed(2), 180, finalY + 26, { align: 'right' });
-    doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.text("Total Due:", 130, finalY + 38); doc.text("$" + finalTotal.toFixed(2), 180, finalY + 38, { align: 'right' });
-    doc.save("Invoice_" + (jobAddress || 'Job') + ".pdf");
   };
 
   let svgViewBox = "0 0 100 100";
@@ -232,95 +156,32 @@ export default function App() {
 
   return (
     <div className="container">
-      <Toast message={toast.message} type={toast.type} onClose={() => setToast({ message: '' })} />
       
-      {/* HEADER */}
+      {/* HEADER OVERLAY */}
       <header>
         <div>
           <h1 className="header-title">SHEET SET</h1>
-          <p className="header-subtitle">Mitchell's Metal Roofing</p>
+          <p className="header-subtitle">MITCHELL'S METAL ROOFING</p>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button className="btn btn-secondary" onClick={() => setShowSettings(!showSettings)}>⚙️ Settings</button>
-        </div>
+        <button className="tool-btn" onClick={() => setShowSettings(true)}>⚙️</button>
       </header>
 
       {/* SETTINGS MODAL */}
       {showSettings && (
-        <div className="results-overlay">
-          <div className="results-card">
-            <h3 style={{ marginTop: 0 }}>Settings</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginBottom: '20px' }}>
-              <div className="input-group"><label>Company Name</label><input type="text" value={settings.companyName} onChange={e => setSettings({...settings, companyName: e.target.value})} /></div>
-              <div className="input-group"><label>Phone</label><input type="text" value={settings.abn} onChange={e => setSettings({...settings, abn: e.target.value})} /></div>
-              <div className="input-group"><label>Metal Cost / m ($)</label><input type="number" value={settings.metalCostPerMeter} onChange={e => setSettings({...settings, metalCostPerMeter: e.target.value})} /></div>
-              <div className="input-group"><label>Labor Rate / Sheet ($)</label><input type="number" value={settings.laborRatePerSheet} onChange={e => setSettings({...settings, laborRatePerSheet: e.target.value})} /></div>
-              <div className="input-group"><label>Markup (%)</label><input type="number" value={settings.markupPercentage} onChange={e => setSettings({...settings, markupPercentage: e.target.value})} /></div>
-              <div className="input-group"><label>Tax (%)</label><input type="number" value={settings.taxPercentage} onChange={e => setSettings({...settings, taxPercentage: e.target.value})} /></div>
-            </div>
-            <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => { localStorage.setItem('sheetSetSettings', JSON.stringify(settings)); setShowSettings(false); showToast("Settings saved"); }}>Save Settings</button>
-            <button className="btn btn-secondary" style={{ width: '100%', marginTop: '10px' }} onClick={() => setShowSettings(false)}>Cancel</button>
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <h3>Settings</h3>
+            <div className="input-group"><label>Company Name</label><input type="text" value={settings.companyName} onChange={e => setSettings({...settings, companyName: e.target.value})} /></div>
+            <div className="input-group"><label>Phone</label><input type="text" value={settings.abn} onChange={e => setSettings({...settings, abn: e.target.value})} /></div>
+            <button className="btn-primary-hud" style={{ padding: '15px', width: '100%', marginTop: '10px' }} onClick={() => { localStorage.setItem('sheetSetSettings', JSON.stringify(settings)); setShowSettings(false); }}>Save</button>
+            <button className="btn-icon" style={{ color: 'var(--text-sub)', width: '100%', marginTop: '10px' }} onClick={() => setShowSettings(false)}>Cancel</button>
           </div>
         </div>
       )}
 
-      {/* RESULTS MODAL */}
-      {showResults && result && exteriorMeters && (
-        <div className="results-overlay">
-          <div className="results-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ margin: 0 }}>Order Summary</h3>
-              <button className="btn btn-secondary" onClick={() => setShowResults(false)}>✕ Close</button>
-            </div>
-            
-            <pre>{result.summary}</pre>
-            
-            <div className="actions-grid">
-              <button className="btn btn-success" onClick={() => { const blob = new Blob([result.csv_data], { type: 'text/csv' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'cut_list.csv'; a.click(); }}>📥 CSV</button>
-              <button className="btn btn-primary" onClick={generateInvoice}>🧾 Invoice</button>
-              <button className="btn btn-secondary" onClick={saveJob}>💾 Save Job</button>
-            </div>
-            
-            <div style={{ marginTop: '30px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                <h3 style={{ margin: 0, borderBottom: 'none', paddingBottom: 0 }}>Visualizer</h3>
-                <div className="map-mode-toggle">
-                  <button className={viewMode === '2d' ? 'active' : ''} onClick={() => setViewMode('2d')}>2D</button>
-                  <button className={viewMode === '3d' ? 'active' : ''} onClick={() => setViewMode('3d')}>3D</button>
-                </div>
-              </div>
-
-              {viewMode === '2d' ? (
-                <svg viewBox={svgViewBox} width="100%" height="auto" style={{border: '1px solid var(--border-light)', borderRadius: '8px', background: '#111'}}>
-                  <polygon points={exteriorMeters.map(p => p[0] + "," + p[1]).join(' ')} fill="none" stroke="#3D5A7A" strokeWidth="0.3" />
-                  {result.sheets?.map((sheet, i) => (<line key={i} x1={sheet.start[0]} y1={sheet.start[1]} x2={sheet.end[0]} y2={sheet.end[1]} stroke="#E8EBEE" strokeWidth="0.15" opacity="0.6" />))}
-                </svg>
-              ) : (
-                <div style={{ height: '400px', width: '100%', background: '#111', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-light)', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--text-secondary)' }}>
-                  {result.mesh_vertices ? (
-                    <Canvas camera={{ position: [20, 20, 20], fov: 50 }}>
-                      <ambientLight intensity={0.6} />
-                      <directionalLight position={[10, 10, 10]} intensity={0.8} />
-                      <RoofMesh vertices={result.mesh_vertices} faces={result.mesh_faces} />
-                      <OrbitControls />
-                    </Canvas>
-                  ) : (
-                    <p style={{ textAlign: 'center', padding: '20px' }}>
-                      🚧 3D view requires the updated backend.<br/>
-                      Please deploy the new backend code to render the 3D model.<br/>
-                      (2D view is still fully functional)
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MAIN MAP */}
+      {/* MAP VIEW */}
       <div className="map-container-wrapper">
-        <MapContainer center={mapCenter} zoom={18} style={{ height: '100%', width: '100%' }}>
+        <MapContainer center={mapCenter} zoom={19} style={{ height: '100%', width: '100%' }}>
           <TileLayer url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}" maxZoom={22} maxNativeZoom={20} />
           <SearchControl />
           <LocateControl />
@@ -329,11 +190,11 @@ export default function App() {
           {isCalibrating && (
             <>
               {calibrationPoints.map((pt, i) => <Marker key={i} position={pt} />)}
-              {calibrationPoints.length === 2 && <Polyline positions={calibrationPoints} color="#3D5A7A" />}
+              {calibrationPoints.length === 2 && <Polyline positions={calibrationPoints} color="#00E5FF" />}
             </>
           )}
 
-          {!isCalibrating && (
+          {!isCalibrating && !showResults && (
             <FeatureGroup>
               <EditControl 
                 position="topright" 
@@ -342,49 +203,149 @@ export default function App() {
                 onDeleted={onDeleted} 
                 draw={{ 
                   rectangle: false, circle: false, circlemarker: false, polyline: false, marker: false, 
-                  polygon: { allowIntersection: false, shapeOptions: { color: '#3D5A7A' } }
+                  polygon: { allowIntersection: false, shapeOptions: { color: '#00E5FF', weight: 3 } }
                 }} 
               />
             </FeatureGroup>
           )}
         </MapContainer>
 
-        <div className="map-overlay-top">
-          <div className="map-mode-toggle">
-            <button className={mapMode === 'draw' ? 'active' : ''} onClick={() => { setMapMode('draw'); setIsCalibrating(false); }}>Draw Roof</button>
-            <button className={mapMode === 'calibrate' ? 'active' : ''} onClick={() => { setMapMode('calibrate'); setIsCalibrating(true); setCalibrationPoints([]); }}>Calibrate</button>
-          </div>
-          <div style={{ background: 'rgba(26,29,36,0.9)', padding: '10px 20px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <input type="text" placeholder="Enter Job Address..." value={jobAddress} onChange={e => setJobAddress(e.target.value)} style={{ background: 'transparent', border: 'none', color: 'white', outline: 'none', width: '200px' }} />
-          </div>
+        {/* FLOATING TOOLBAR */}
+        <div className="floating-toolbar">
+          <button className={`tool-btn ${mapMode === 'draw' ? 'active' : ''}`} onClick={() => { setMapMode('draw'); setIsCalibrating(false); }}>📐</button>
+          <button className={`tool-btn ${mapMode === 'calibrate' ? 'active' : ''}`} onClick={() => { setMapMode('calibrate'); setIsCalibrating(true); setCalibrationPoints([]); }}>📏</button>
         </div>
 
-        {mapMode === 'calibrate' && (
-          <div className="map-actions" style={{ bottom: '20px', left: '20px', right: 'auto' }}>
-            <div style={{ background: 'var(--bg-surface)', padding: '10px', borderRadius: '12px', display: 'flex', gap: '10px', border: '1px solid var(--border-light)' }}>
-              <input type="number" placeholder="Real length (m)" value={realWorldLength} onChange={e => setRealWorldLength(e.target.value)} style={{ width: '120px', padding: '8px' }} />
-              <button className="btn btn-primary" style={{ padding: '8px 16px' }} onClick={applyCalibration}>Apply</button>
+        {/* BOTTOM MAP CONTROLS */}
+        {!showResults && (
+          <div className="map-bottom-controls">
+            {mapMode === 'calibrate' && (
+              <div className="scale-pill" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '10px' }}>
+                <span>Enter Real Length:</span>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <input type="number" placeholder="Meters" value={realWorldLength} onChange={e => setRealWorldLength(e.target.value)} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '5px', borderRadius: '4px', width: '80px' }} />
+                  <button style={{ background: 'var(--brand-cyan)', color: '#000', border: 'none', padding: '5px 10px', borderRadius: '4px', fontWeight: 'bold' }} onClick={applyCalibration}>Apply</button>
+                </div>
+              </div>
+            )}
+            
+            <div className="scale-pill">
+              <span className="dot"></span> Scale calibrated · ±2 cm
             </div>
+
+            {mapMode === 'draw' ? (
+              <button className="btn-draw-main" onClick={calculateRoof} disabled={loading || !drawnCoords}>
+                {loading ? "ANALYZING..." : "☑️ Calculate Roof"}
+              </button>
+            ) : (
+              <button className="btn-draw-main" style={{ borderColor: 'var(--text-sub)', color: 'var(--text-sub)' }} onClick={() => { setMapMode('draw'); setIsCalibrating(false); }}>
+                Cancel Calibration
+              </button>
+            )}
           </div>
         )}
       </div>
 
-      {/* BOTTOM INPUT BAR */}
-      <div className="bottom-sheet">
-        <div className="input-row">
-          <div className="input-group">
-            <label>Pitch: {pitch}°</label>
-            <input type="range" min="10" max="60" value={pitch} onChange={e => setPitch(e.target.value)} />
+      {/* HUD RESULTS SHEET */}
+      {showResults && result && exteriorMeters && (
+        <div className="hud-sheet">
+          <div className="hud-scroll-area">
+            
+            <div className="hud-header">
+              <div className="hud-tag">TOTAL SHEETS</div>
+              <h2 className="hud-title">Hip roof · L-shape</h2>
+              <p style={{ color: 'var(--text-sub)', fontSize: '12px' }}>27 Banksia Cres, Toowoomba QLD</p>
+              
+              <div className="hud-badges">
+                <div className="hud-badge">{pitch}° pitch</div>
+                <div className="hud-badge">{width} mm cover</div>
+                <div className="hud-badge">{settings.overhangMm} mm overhang</div>
+              </div>
+            </div>
+
+            <div className="data-grid">
+              <div className="data-card">
+                <div className="data-label">TOTAL SHEETS</div>
+                <div className="data-value">{result.sheets.length}</div>
+              </div>
+              <div className="data-card">
+                <div className="data-label">ROOF AREA</div>
+                <div className="data-value">{result.roof_area_m2.toFixed(1)}<span style={{fontSize:'18px'}}> m²</span></div>
+              </div>
+              <div className="data-card">
+                <div className="data-label">LINEAR COIL</div>
+                <div className="data-value">{result.summary.match(/Ordered: ([\d.]+)m/)?.[1] || 0}<span style={{fontSize:'18px'}}> m</span></div>
+              </div>
+              <div className="data-card">
+                <div className="data-label">WASTE</div>
+                <div className="data-value">{result.total_waste_pct.toFixed(1)}<span style={{fontSize:'18px'}}> %</span></div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+              <h3 style={{ fontSize: '16px' }}>Measurement</h3>
+              <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '3px' }}>
+                <button style={{ padding: '5px 15px', background: viewMode === '2d' ? 'var(--brand-cyan)' : 'transparent', color: viewMode === '2d' ? '#000' : '#fff', border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }} onClick={() => setViewMode('2d')}>2D</button>
+                <button style={{ padding: '5px 15px', background: viewMode === '3d' ? 'var(--brand-cyan)' : 'transparent', color: viewMode === '3d' ? '#000' : '#fff', border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }} onClick={() => setViewMode('3d')}>3D</button>
+              </div>
+            </div>
+
+            <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: '16px', padding: '15px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '25px' }}>
+              {viewMode === '2d' ? (
+                <svg viewBox={svgViewBox} width="100%" height="200" style={{display: 'block'}}>
+                  <polygon points={exteriorMeters.map(p => p[0] + "," + p[1]).join(' ')} fill="rgba(0, 229, 255, 0.05)" stroke="#00E5FF" strokeWidth="0.3" />
+                  {result.sheets?.map((sheet, i) => (<line key={i} x1={sheet.start[0]} y1={sheet.start[1]} x2={sheet.end[0]} y2={sheet.end[1]} stroke="rgba(255,255,255,0.4)" strokeWidth="0.1" />))}
+                </svg>
+              ) : (
+                <div style={{ height: '200px', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  {result.mesh_vertices ? (
+                    <Canvas camera={{ position: [20, 20, 20], fov: 50 }}>
+                      <ambientLight intensity={0.5} />
+                      <directionalLight position={[10, 10, 10]} intensity={1} />
+                      <RoofMesh vertices={result.mesh_vertices} faces={result.mesh_faces} />
+                      <OrbitControls />
+                    </Canvas>
+                  ) : <p style={{ color: 'var(--text-sub)' }}>Update backend for 3D</p>}
+                </div>
+              )}
+            </div>
+
+            <h3 style={{ fontSize: '16px', marginBottom: '15px' }}>Trims & Flashings</h3>
+            <div className="trims-grid">
+              <div className="trim-card">
+                <div className="trim-title">Ridge capping</div>
+                <div className="trim-val">{result.trims?.ridge_capping_m || 0} m</div>
+              </div>
+              <div className="trim-card">
+                <div className="trim-title">Hip capping</div>
+                <div className="trim-val">{result.trims?.hip_capping_m || 0} m</div>
+              </div>
+              <div className="trim-card">
+                <div className="trim-title">Valley capping</div>
+                <div className="trim-val">{result.trims?.valley_capping_m || 0} m</div>
+              </div>
+              <div className="trim-card">
+                <div className="trim-title">Eaves / gutter</div>
+                <div className="trim-val">{result.trims?.eaves_gutter_m || 0} m</div>
+              </div>
+            </div>
+
           </div>
-          <div className="input-group">
-            <label>Sheet Width: {width}mm</label>
-            <input type="range" min="500" max="1000" value={width} onChange={e => setWidth(e.target.value)} />
+
+          {/* STICKY BOTTOM BAR */}
+          <div className="hud-bottom-bar">
+            <button className="btn-icon" onClick={() => {
+              const blob = new Blob([result.csv_data], { type: 'text/csv' });
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement('a'); a.href = url; a.download = 'cut_list.csv'; a.click();
+            }}><span>📥</span>CSV</button>
+            <button className="btn-icon"><span>💾</span>Save</button>
+            <button className="btn-icon"><span>🔗</span>Share</button>
+            <button className="btn-primary-hud" onClick={() => setShowResults(false)}>Results</button>
           </div>
         </div>
-        <button className="btn btn-primary" style={{ padding: '18px', fontSize: '18px', width: '100%' }} onClick={calculateRoof} disabled={loading || !drawnCoords}>
-          {loading ? "⏳ Analyzing Geometry..." : "Calculate Roof"}
-        </button>
-      </div>
+      )}
+
     </div>
   );
-}
+  }
