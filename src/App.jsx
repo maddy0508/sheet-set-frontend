@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { MapContainer, TileLayer, FeatureGroup, useMap, Marker, Polyline, useMapEvents } from 'react-leaflet';
 import { EditControl } from 'marwan-yasser-react-leaflet-draw';
@@ -80,14 +80,16 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [drawnCoords, setDrawnCoords] = useState(null);
   const [exteriorMeters, setExteriorMeters] = useState(null);
-  const [mapCenter, setMapCenter] = useState([-27.5598, 151.9507]); // Toowoomba default
+  const [mapCenter, setMapCenter] = useState([-27.5598, 151.9507]); 
   
   const [showSettings, setShowSettings] = useState(false);
-  const [jobAddress, setJobAddress] = useState("");
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [calibrationPoints, setCalibrationPoints] = useState([]);
   const [realWorldLength, setRealWorldLength] = useState("");
   const [scaleFactor, setScaleFactor] = useState(1);
+
+  // Ref to hold the Leaflet Draw control so we can trigger it manually
+  const drawControlRef = useRef(null);
   
   const [settings, setSettings] = useState({
     companyName: "Mitchell's Metal Roofing", abn: "0435 918 594",
@@ -148,6 +150,14 @@ export default function App() {
     setLoading(false);
   };
 
+  // The magic function to trigger the drawing tool
+  const startDrawing = () => {
+    if (drawControlRef.current) {
+      // Leaflet Draw internal API to enable polygon drawing
+      drawControlRef.current._toolbars.draw._modes.polygon.handler.enable();
+    }
+  };
+
   let svgViewBox = "0 0 100 100";
   if (exteriorMeters && exteriorMeters.length > 0) {
     const xs = exteriorMeters.map(p => p[0]), ys = exteriorMeters.map(p => p[1]);
@@ -201,6 +211,7 @@ export default function App() {
                 onCreated={onCreated} 
                 onEdited={onEdited} 
                 onDeleted={onDeleted} 
+                onMounted={(control) => drawControlRef.current = control} // <--- SAVES THE CONTROL
                 draw={{ 
                   rectangle: false, circle: false, circlemarker: false, polyline: false, marker: false, 
                   polygon: { allowIntersection: false, shapeOptions: { color: '#00E5FF', weight: 3 } }
@@ -234,8 +245,12 @@ export default function App() {
             </div>
 
             {mapMode === 'draw' ? (
-              <button className="btn-draw-main" onClick={calculateRoof} disabled={loading || !drawnCoords}>
-                {loading ? "ANALYZING..." : "☑️ Calculate Roof"}
+              <button 
+                className="btn-draw-main" 
+                onClick={drawnCoords ? calculateRoof : startDrawing} 
+                disabled={loading}
+              >
+                {loading ? "ANALYZING..." : drawnCoords ? "☑️ Calculate Roof" : "⬡ Draw Roof"}
               </button>
             ) : (
               <button className="btn-draw-main" style={{ borderColor: 'var(--text-sub)', color: 'var(--text-sub)' }} onClick={() => { setMapMode('draw'); setIsCalibrating(false); }}>
@@ -254,7 +269,7 @@ export default function App() {
             <div className="hud-header">
               <div className="hud-tag">TOTAL SHEETS</div>
               <h2 className="hud-title">Hip roof · L-shape</h2>
-              <p style={{ color: 'var(--text-sub)', fontSize: '12px' }}>27 Banksia Cres, Toowoomba QLD</p>
+              <p style={{ color: 'var(--text-sub)', fontSize: '12px' }}>Traced from map</p>
               
               <div className="hud-badges">
                 <div className="hud-badge">{pitch}° pitch</div>
