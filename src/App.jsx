@@ -53,7 +53,7 @@ function LocateControl() {
     const locateControl = L.control({ position: 'bottomleft' });
     locateControl.onAdd = () => {
       const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
-      div.innerHTML = '<button title="Locate Me" style="background:#0A0F19; border:1px solid rgba(0,229,255,0.3); color:#00E5FF; font-size:18px; padding:12px; cursor:pointer; border-radius:12px; box-shadow:0 0 15px rgba(0,229,255,0.1);">🎯</button>';
+      div.innerHTML = '<button title="Locate Me" style="background:#0A0F19; border:1px solid rgba(0,229,255,0.3); color:#00E5FF; font-size:18px; padding:10px; cursor:pointer; border-radius:10px; box-shadow:0 4px 15px rgba(0,0,0,0.5);">🎯</button>';
       L.DomEvent.disableClickPropagation(div);
       div.onclick = () => map.locate({ setView: true, maxZoom: 20 });
       return div;
@@ -70,12 +70,16 @@ function MapClickHandler({ active, onClick }) {
 }
 
 export default function App() {
-  const [mapMode, setMapMode] = useState('draw');
+  const [inputMode, setInputMode] = useState('map'); // 'map' or 'manual'
+  const [mapMode, setMapMode] = useState('draw'); // 'draw' or 'calibrate'
   const [viewMode, setViewMode] = useState('2d');
   const [showResults, setShowResults] = useState(false);
   
   const [pitch, setPitch] = useState(30);
   const [width, setWidth] = useState(760);
+  const [manualWidth, setManualWidth] = useState(10);
+  const [manualLength, setManualLength] = useState(20);
+  
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [drawnCoords, setDrawnCoords] = useState(null);
@@ -134,9 +138,19 @@ export default function App() {
   const onDeleted = () => { setDrawnCoords(null); setExteriorMeters(null); setResult(null); };
 
   const calculateRoof = async () => {
-    if (!drawnCoords) return;
+    let extMeters = [];
+
+    if (inputMode === 'map') {
+      if (!drawnCoords) return;
+      extMeters = latLngToMeters(drawnCoords, true);
+    } else {
+      const w = parseFloat(manualWidth);
+      const l = parseFloat(manualLength);
+      if (isNaN(w) || isNaN(l) || w <= 0 || l <= 0) return alert("Please enter valid dimensions");
+      extMeters = [[0,0], [w,0], [w,l], [0,l]];
+    }
+
     setLoading(true); setResult(null);
-    const extMeters = latLngToMeters(drawnCoords, true);
     setExteriorMeters(extMeters);
 
     try {
@@ -149,18 +163,9 @@ export default function App() {
     setLoading(false);
   };
 
-  // --- CUSTOM MAP CONTROLS ---
-  const startDrawing = () => {
-    if (drawControlRef.current) drawControlRef.current._toolbars.draw._modes.polygon.handler.enable();
-  };
-
-  const startEditing = () => {
-    if (drawControlRef.current) drawControlRef.current._toolbars.edit._modes.edit.handler.enable();
-  };
-
-  const deleteShape = () => {
-    if (drawControlRef.current) drawControlRef.current._toolbars.edit._modes.remove.handler.enable();
-  };
+  const startDrawing = () => { if (drawControlRef.current) drawControlRef.current._toolbars.draw._modes.polygon.handler.enable(); };
+  const startEditing = () => { if (drawControlRef.current) drawControlRef.current._toolbars.edit._modes.edit.handler.enable(); };
+  const deleteShape = () => { if (drawControlRef.current) drawControlRef.current._toolbars.edit._modes.remove.handler.enable(); };
 
   let svgViewBox = "0 0 100 100";
   if (exteriorMeters && exteriorMeters.length > 0) {
@@ -175,22 +180,10 @@ export default function App() {
           <h1 className="header-title">SHEET SET</h1>
           <p className="header-subtitle">MITCHELL'S METAL ROOFING</p>
         </div>
-        <button className="tool-btn" onClick={() => setShowSettings(true)}>⚙️</button>
+        <button className="header-btn" onClick={() => setShowSettings(true)}>⚙️</button>
       </header>
 
-      {showSettings && (
-        <div className="modal-overlay">
-          <div className="modal-card">
-            <h3>Settings</h3>
-            <div className="input-group"><label>Company Name</label><input type="text" value={settings.companyName} onChange={e => setSettings({...settings, companyName: e.target.value})} /></div>
-            <div className="input-group"><label>Phone</label><input type="text" value={settings.abn} onChange={e => setSettings({...settings, abn: e.target.value})} /></div>
-            <button className="btn-primary-hud" style={{ padding: '15px', width: '100%', marginTop: '10px' }} onClick={() => { localStorage.setItem('sheetSetSettings', JSON.stringify(settings)); setShowSettings(false); }}>Save</button>
-            <button className="btn-icon" style={{ color: 'var(--text-sub)', width: '100%', marginTop: '10px' }} onClick={() => setShowSettings(false)}>Cancel</button>
-          </div>
-        </div>
-      )}
-
-      <div className="map-container-wrapper">
+      <div className="map-container-wrapper" style={{ opacity: inputMode === 'manual' ? 0.3 : 1, pointerEvents: inputMode === 'manual' ? 'none' : 'auto' }}>
         <MapContainer center={mapCenter} zoom={19} style={{ height: '100%', width: '100%' }}>
           <TileLayer url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}" maxZoom={22} maxNativeZoom={20} />
           <SearchControl />
@@ -221,45 +214,107 @@ export default function App() {
           )}
         </MapContainer>
 
-        {/* FLOATING TOOLBAR WITH CUSTOM EDIT/DELETE */}
-        {!isCalibrating && !showResults && (
+        {!isCalibrating && !showResults && inputMode === 'map' && (
           <div className="floating-toolbar">
             <button className="tool-btn" onClick={startDrawing} title="Draw New Shape">⬡</button>
             <button className="tool-btn" onClick={startEditing} title="Edit Shape Points">✏️</button>
             <button className="tool-btn" onClick={deleteShape} title="Delete Shape" style={{ color: '#ff4444', borderColor: 'rgba(255,68,68,0.3)' }}>🗑️</button>
           </div>
         )}
+      </div>
 
-        {!showResults && (
-          <div className="map-bottom-controls">
-            {mapMode === 'calibrate' && (
-              <div className="scale-pill" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '10px' }}>
-                <span>Enter Real Length:</span>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <input type="number" placeholder="Meters" value={realWorldLength} onChange={e => setRealWorldLength(e.target.value)} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '5px', borderRadius: '4px', width: '80px' }} />
-                  <button style={{ background: 'var(--brand-cyan)', color: '#000', border: 'none', padding: '5px 10px', borderRadius: '4px', fontWeight: 'bold' }} onClick={applyCalibration}>Apply</button>
+      {!showResults && (
+        <div className="bottom-sheet">
+          
+          {/* INPUT MODE TOGGLE */}
+          {mapMode === 'draw' && (
+            <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '10px', padding: '4px', marginBottom: '5px' }}>
+              <button style={{ flex: 1, padding: '8px', background: inputMode === 'map' ? 'var(--brand-cyan)' : 'transparent', color: inputMode === 'map' ? '#000' : '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }} onClick={() => setInputMode('map')}>Draw on Map</button>
+              <button style={{ flex: 1, padding: '8px', background: inputMode === 'manual' ? 'var(--brand-cyan)' : 'transparent', color: inputMode === 'manual' ? '#000' : '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }} onClick={() => setInputMode('manual')}>Manual Entry</button>
+            </div>
+          )}
+
+          {mapMode === 'calibrate' ? (
+            <div className="scale-pill" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px', background: 'transparent', border: 'none' }}>
+              <span style={{ color: 'var(--brand-cyan)', fontWeight: 'bold' }}>Enter Real Length (m):</span>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input type="number" placeholder="e.g. 10" value={realWorldLength} onChange={e => setRealWorldLength(e.target.value)} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '10px', borderRadius: '6px', width: '100px' }} />
+                <button style={{ background: 'var(--brand-cyan)', color: '#000', border: 'none', padding: '10px 15px', borderRadius: '6px', fontWeight: 'bold', flex: 1 }} onClick={applyCalibration}>Apply Calibration</button>
+              </div>
+            </div>
+          ) : inputMode === 'map' ? (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="scale-pill">
+                  <span className="dot"></span> {scaleFactor === 1 ? 'Standard Scale' : 'Scale Calibrated'}
+                </div>
+                <button style={{ background: 'transparent', color: 'var(--text-sub)', border: 'none', fontSize: '12px', textDecoration: 'underline' }} onClick={() => { setMapMode('calibrate'); setIsCalibrating(true); setCalibrationPoints([]); }}>
+                  Calibrate Map
+                </button>
+              </div>
+              
+              <div className="input-row">
+                <div className="input-group">
+                  <label>Pitch: {pitch}°</label>
+                  <input type="range" min="10" max="60" value={pitch} onChange={e => setPitch(e.target.value)} />
+                </div>
+                <div className="input-group">
+                  <label>Width: {width}mm</label>
+                  <input type="range" min="500" max="1000" value={width} onChange={e => setWidth(e.target.value)} />
                 </div>
               </div>
-            )}
-            
-            {!isCalibrating && (
-              <div className="scale-pill">
-                <span className="dot"></span> {scaleFactor === 1 ? 'Standard Scale' : 'Scale Calibrated'}
+            </>
+          ) : (
+            // MANUAL ENTRY UI
+            <div style={{ background: 'var(--bg-card)', padding: '15px', borderRadius: '12px', border: '1px solid var(--border-glow)' }}>
+              <p style={{ color: 'var(--brand-cyan)', fontSize: '12px', fontWeight: 'bold', marginBottom: '10px' }}>Enter Roof Dimensions (meters)</p>
+              <div className="input-row">
+                <div className="input-group">
+                  <label>Width (m)</label>
+                  <input type="number" value={manualWidth} onChange={e => setManualWidth(e.target.value)} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '12px', borderRadius: '6px', fontSize: '16px' }} />
+                </div>
+                <div className="input-group">
+                  <label>Length (m)</label>
+                  <input type="number" value={manualLength} onChange={e => setManualLength(e.target.value)} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '12px', borderRadius: '6px', fontSize: '16px' }} />
+                </div>
               </div>
-            )}
+              <div className="input-row" style={{ marginTop: '10px' }}>
+                <div className="input-group">
+                  <label>Pitch: {pitch}°</label>
+                  <input type="range" min="10" max="60" value={pitch} onChange={e => setPitch(e.target.value)} />
+                </div>
+                <div className="input-group">
+                  <label>Width: {width}mm</label>
+                  <input type="range" min="500" max="1000" value={width} onChange={e => setWidth(e.target.value)} />
+                </div>
+              </div>
+            </div>
+          )}
 
-            {mapMode === 'draw' ? (
-              <button className="btn-draw-main" onClick={drawnCoords ? calculateRoof : startDrawing} disabled={loading}>
-                {loading ? "ANALYZING..." : drawnCoords ? "☑️ Calculate Roof" : "⬡ Draw Roof"}
-              </button>
-            ) : (
-              <button className="btn-draw-main" style={{ borderColor: 'var(--text-sub)', color: 'var(--text-sub)' }} onClick={() => { setMapMode('draw'); setIsCalibrating(false); }}>
-                Cancel Calibration
-              </button>
-            )}
+          {mapMode === 'draw' ? (
+            <button className="btn-draw-main" onClick={calculateRoof} disabled={loading || (inputMode === 'map' && !drawnCoords)}>
+              {loading ? "ANALYZING..." : "☑️ Calculate Roof"}
+            </button>
+          ) : (
+            <button className="btn-draw-main" style={{ borderColor: 'var(--text-sub)', color: 'var(--text-sub)', boxShadow: 'none' }} onClick={() => { setMapMode('draw'); setIsCalibrating(false); }}>
+              Cancel Calibration
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ... (Keep the Settings Modal and Results HUD exactly as they are from the previous code) ... */}
+      {showSettings && (
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <h3>Settings</h3>
+            <div className="input-group"><label>Company Name</label><input type="text" value={settings.companyName} onChange={e => setSettings({...settings, companyName: e.target.value})} /></div>
+            <div className="input-group"><label>Phone</label><input type="text" value={settings.abn} onChange={e => setSettings({...settings, abn: e.target.value})} /></div>
+            <button className="btn-primary-hud" style={{ padding: '15px', width: '100%', marginTop: '15px' }} onClick={() => { localStorage.setItem('sheetSetSettings', JSON.stringify(settings)); setShowSettings(false); }}>Save</button>
+            <button className="btn-icon" style={{ color: 'var(--text-sub)', width: '100%', marginTop: '10px' }} onClick={() => setShowSettings(false)}>Cancel</button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {showResults && result && exteriorMeters && (
         <div className="hud-sheet">
@@ -267,7 +322,7 @@ export default function App() {
             <div className="hud-header">
               <div className="hud-tag">TOTAL SHEETS</div>
               <h2 className="hud-title">Hip roof · L-shape</h2>
-              <p style={{ color: 'var(--text-sub)', fontSize: '12px' }}>Traced from map</p>
+              <p style={{ color: 'var(--text-sub)', fontSize: '12px' }}>{inputMode === 'map' ? 'Traced from map' : 'Manual Dimensions'}</p>
               <div className="hud-badges">
                 <div className="hud-badge">{pitch}° pitch</div>
                 <div className="hud-badge">{width} mm cover</div>
@@ -309,52 +364,4 @@ export default function App() {
                   {result.sheets?.map((sheet, i) => (<line key={i} x1={sheet.start[0]} y1={sheet.start[1]} x2={sheet.end[0]} y2={sheet.end[1]} stroke="rgba(255,255,255,0.4)" strokeWidth="0.1" />))}
                 </svg>
               ) : (
-                <div style={{ height: '200px', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                  {result.mesh_vertices ? (
-                    <Canvas camera={{ position: [20, 20, 20], fov: 50 }}>
-                      <ambientLight intensity={0.5} />
-                      <directionalLight position={[10, 10, 10]} intensity={1} />
-                      <RoofMesh vertices={result.mesh_vertices} faces={result.mesh_faces} />
-                      <OrbitControls />
-                    </Canvas>
-                  ) : <p style={{ color: 'var(--text-sub)' }}>Update backend for 3D</p>}
-                </div>
-              )}
-            </div>
-
-            <h3 style={{ fontSize: '16px', marginBottom: '15px' }}>Trims & Flashings</h3>
-            <div className="trims-grid">
-              <div className="trim-card">
-                <div className="trim-title">Ridge capping</div>
-                <div className="trim-val">{result.trims?.ridge_capping_m || 0} m</div>
-              </div>
-              <div className="trim-card">
-                <div className="trim-title">Hip capping</div>
-                <div className="trim-val">{result.trims?.hip_capping_m || 0} m</div>
-              </div>
-              <div className="trim-card">
-                <div className="trim-title">Valley capping</div>
-                <div className="trim-val">{result.trims?.valley_capping_m || 0} m</div>
-              </div>
-              <div className="trim-card">
-                <div className="trim-title">Eaves / gutter</div>
-                <div className="trim-val">{result.trims?.eaves_gutter_m || 0} m</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="hud-bottom-bar">
-            <button className="btn-icon" onClick={() => {
-              const blob = new Blob([result.csv_data], { type: 'text/csv' });
-              const url = window.URL.createObjectURL(blob);
-              const a = document.createElement('a'); a.href = url; a.download = 'cut_list.csv'; a.click();
-            }}><span>📥</span>CSV</button>
-            <button className="btn-icon"><span>💾</span>Save</button>
-            <button className="btn-icon"><span>🔗</span>Share</button>
-            <button className="btn-primary-hud" onClick={() => setShowResults(false)}>Results</button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-    }
+                <div style={{ height: '200px', width: '100%
