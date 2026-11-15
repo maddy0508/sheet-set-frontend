@@ -51,21 +51,28 @@ export default function App() {
   const [mapMode, setMapMode] = useState('draw');
   const [viewMode, setViewMode] = useState('2d');
   const [showResults, setShowResults] = useState(false);
+  
+  const [isDrawing, setIsDrawing] = useState(false); // Tracks if user is actively dropping points
+  
   const [pitch, setPitch] = useState(30);
   const [width, setWidth] = useState(760);
   const [manualWidth, setManualWidth] = useState(10);
   const [manualLength, setManualLength] = useState(20);
+  
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [drawnCoords, setDrawnCoords] = useState(null);
   const [exteriorMeters, setExteriorMeters] = useState(null);
   const [mapCenter, setMapCenter] = useState([-27.5598, 151.9507]);
+  
   const [showSettings, setShowSettings] = useState(false);
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [calibrationPoints, setCalibrationPoints] = useState([]);
   const [realWorldLength, setRealWorldLength] = useState("");
   const [scaleFactor, setScaleFactor] = useState(1);
+
   const drawControlRef = useRef(null);
+  
   const [settings, setSettings] = useState({ companyName: "Mitchell's Metal Roofing", abn: "0435 918 594", metalCostPerMeter: 15.00, laborRatePerSheet: 45.00, markupPercentage: 20.0, taxPercentage: 10.0, overhangMm: 150 });
 
   useEffect(() => {
@@ -102,9 +109,13 @@ export default function App() {
     });
   };
 
-  const onCreated = (e) => setDrawnCoords(e.layer.getLatLngs()[0].map(ll => ({ lat: ll.lat, lng: ll.lng })));
+  const onCreated = (e) => {
+    setDrawnCoords(e.layer.getLatLngs()[0].map(ll => ({ lat: ll.lat, lng: ll.lng })));
+    setIsDrawing(false);
+  };
+
   const onEdited = (e) => e.layers.eachLayer((layer) => setDrawnCoords(layer.getLatLngs()[0].map(ll => ({ lat: ll.lat, lng: ll.lng }))));
-  const onDeleted = () => { setDrawnCoords(null); setExteriorMeters(null); setResult(null); };
+  const onDeleted = () => { setDrawnCoords(null); setExteriorMeters(null); setResult(null); setIsDrawing(false); };
 
   const calculateRoof = async () => {
     let extMeters = [];
@@ -125,7 +136,6 @@ export default function App() {
       });
       setResult(response.data); setShowResults(true);
     } catch (err) {
-      // REVEAL THE ACTUAL ERROR
       console.error("Full Error:", err);
       const exactError = err.response?.data?.detail || err.message || JSON.stringify(err);
       alert("Backend Error: " + exactError);
@@ -133,9 +143,34 @@ export default function App() {
     setLoading(false);
   };
 
-  const startDrawing = () => { if (drawControlRef.current) drawControlRef.current._toolbars.draw._modes.polygon.handler.enable(); };
-  const startEditing = () => { if (drawControlRef.current) drawControlRef.current._toolbars.edit._modes.edit.handler.enable(); };
-  const deleteShape = () => { if (drawControlRef.current) drawControlRef.current._toolbars.edit._modes.remove.handler.enable(); };
+  // --- CUSTOM MAP CONTROLS ---
+  const startDrawing = () => { 
+    if (drawControlRef.current) {
+      drawControlRef.current._toolbars.draw._modes.polygon.handler.enable(); 
+      setIsDrawing(true);
+    }
+  };
+
+  const undoPoint = () => {
+    if (drawControlRef.current && isDrawing) {
+      // This native Leaflet-draw method removes the last dropped point
+      drawControlRef.current._toolbars.draw._modes.polygon.handler.deleteLastVertex();
+    }
+  };
+
+  const startEditing = () => { 
+    if (drawControlRef.current) {
+      drawControlRef.current._toolbars.edit._modes.edit.handler.enable(); 
+      alert("Tap the shape to show the drag handles, then move the corners.");
+    }
+  };
+
+  const deleteShape = () => { 
+    if (drawControlRef.current) {
+      drawControlRef.current._toolbars.edit._modes.remove.handler.enable(); 
+      setIsDrawing(false);
+    }
+  };
 
   let svgViewBox = "0 0 100 100";
   if (exteriorMeters && exteriorMeters.length > 0) {
@@ -158,17 +193,30 @@ export default function App() {
           <TileLayer url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}" maxZoom={22} maxNativeZoom={20} />
           <SearchControl /> <LocateControl /> <MapClickHandler active={isCalibrating} onClick={handleMapClick} />
           {isCalibrating && (<>{calibrationPoints.map((pt, i) => <Marker key={i} position={pt} />)}{calibrationPoints.length === 2 && <Polyline positions={calibrationPoints} color="#00E5FF" />}</>)}
+          
           {!isCalibrating && !showResults && (
             <FeatureGroup>
-              <EditControl position="topright" onCreated={onCreated} onEdited={onEdited} onDeleted={onDeleted} onMounted={(control) => drawControlRef.current = control} draw={{ rectangle: false, circle: false, circlemarker: false, polyline: false, marker: false, polygon: { allowIntersection: false, shapeOptions: { color: '#00E5FF', weight: 3 } } }} />
+              <EditControl 
+                position="topright" 
+                onCreated={onCreated} 
+                onEdited={onEdited} 
+                onDeleted={onDeleted} 
+                onMounted={(control) => drawControlRef.current = control} 
+                draw={{ rectangle: false, circle: false, circlemarker: false, polyline: false, marker: false, polygon: { allowIntersection: false, shapeOptions: { color: '#00E5FF', weight: 3 } } }} 
+              />
             </FeatureGroup>
           )}
         </MapContainer>
+
         {!isCalibrating && !showResults && inputMode === 'map' && (
           <div className="floating-toolbar">
-            <button className="tool-btn" onClick={startDrawing}>⬡</button>
-            <button className="tool-btn" onClick={startEditing}>✏️</button>
-            <button className="tool-btn" onClick={deleteShape} style={{ color: '#ff4444', borderColor: 'rgba(255,68,68,0.3)' }}>🗑️</button>
+            {isDrawing ? (
+              <button className="tool-btn" onClick={undoPoint} style={{ color: '#ffcc00', borderColor: 'rgba(255,204,0,0.5)' }} title="Undo Last Point">↩️</button>
+            ) : (
+              <button className="tool-btn" onClick={startDrawing} title="Draw New Shape">⬡</button>
+            )}
+            <button className="tool-btn" onClick={startEditing} title="Edit Corners">✏️</button>
+            <button className="tool-btn" onClick={deleteShape} title="Delete Shape" style={{ color: '#ff4444', borderColor: 'rgba(255,68,68,0.3)' }}>🗑️</button>
           </div>
         )}
       </div>
@@ -181,6 +229,7 @@ export default function App() {
               <button style={{ flex: 1, padding: '8px', background: inputMode === 'manual' ? 'var(--brand-cyan)' : 'transparent', color: inputMode === 'manual' ? '#000' : '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold' }} onClick={() => setInputMode('manual')}>Manual Entry</button>
             </div>
           )}
+          
           {mapMode === 'calibrate' ? (
             <div className="scale-pill" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px', background: 'transparent', border: 'none' }}>
               <span style={{ color: 'var(--brand-cyan)', fontWeight: 'bold' }}>Enter Real Length (m):</span>
@@ -213,6 +262,7 @@ export default function App() {
               </div>
             </div>
           )}
+          
           {mapMode === 'draw' ? (
             <button className="btn-draw-main" onClick={calculateRoof} disabled={loading || (inputMode === 'map' && !drawnCoords)}>
               {loading ? "ANALYZING..." : "☑️ Calculate Roof"}
@@ -286,4 +336,4 @@ export default function App() {
       )}
     </div>
   );
-          }
+}
