@@ -1,351 +1,148 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
-import { MapContainer, TileLayer, FeatureGroup, useMap, Marker, Polyline, useMapEvents } from 'react-leaflet';
-import { EditControl } from 'marwan-yasser-react-leaflet-draw';
-import L from 'leaflet';
-import 'leaflet-geosearch/dist/geosearch.css';
-import { GeoSearchControl, OpenStreetMapProvider } from 'leaflet-geosearch';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-import { Canvas } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
+@import 'leaflet/dist/leaflet.css';
+@import 'leaflet-draw/dist/leaflet.draw.css';
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
-const API_URL = import.meta.env.VITE_API_URL || "https://sheet-set-backend.onrender.com"; 
-
-const RoofMesh = ({ vertices, faces }) => {
-  const geometry = useMemo(() => {
-    if (!vertices || !faces) return null;
-    const triangles = [];
-    faces.forEach(face => {
-      for (let i = 1; i < face.length - 1; i++) triangles.push([face[0], face[i], face[i+1]]);
-    });
-    return { positions: new Float32Array(vertices.flat()), indices: new Uint32Array(triangles.flat()) };
-  }, [vertices, faces]);
-  if (!geometry) return null;
-  return (
-    <mesh>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={geometry.positions.length / 3} array={geometry.positions} itemSize={3} />
-        <bufferAttribute attach="index" count={geometry.indices.length} array={geometry.indices} itemSize={1} />
-      </bufferGeometry>
-      <meshStandardMaterial color="#00E5FF" emissive="#003344" side={2} flatShading={true} metalness={0.8} roughness={0.2} />
-    </mesh>
-  );
-};
-
-function SearchControl() {
-  const map = useMap();
-  useEffect(() => {
-    const provider = new OpenStreetMapProvider();
-    const searchControl = new GeoSearchControl({ 
-      provider, style: 'bar', showMarker: true, showPopup: false, autoClose: true, 
-      retainZoomLevel: false, animateZoom: true, keepResult: false, searchLabel: 'Search address...',
-    });
-    map.addControl(searchControl);
-    return () => map.removeControl(searchControl);
-  }, [map]);
-  return null;
+:root {
+  --bg-body: #05080E;
+  --bg-panel: rgba(10, 15, 25, 0.85);
+  --brand-cyan: #00E5FF;
+  --brand-blue: #1A5B82;
+  --text-main: #FFFFFF;
+  --text-sub: #8B9BB4;
+  --border-glow: rgba(0, 229, 255, 0.3);
+  --success: #00E676;
 }
 
-function LocateControl() {
-  const map = useMap();
-  useEffect(() => {
-    const locateControl = L.control({ position: 'bottomleft' });
-    locateControl.onAdd = () => {
-      const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
-      div.innerHTML = '<button title="Locate Me" style="background:#0A0F19; border:1px solid rgba(0,229,255,0.3); color:#00E5FF; font-size:18px; padding:12px; cursor:pointer; border-radius:12px; box-shadow:0 0 15px rgba(0,229,255,0.1);">🎯</button>';
-      L.DomEvent.disableClickPropagation(div);
-      div.onclick = () => map.locate({ setView: true, maxZoom: 20 });
-      return div;
-    };
-    locateControl.addTo(map);
-    return () => { locateControl.remove(); map.off('locationfound'); map.off('locationerror'); };
-  }, [map]);
-  return null;
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body, #root { height: 100%; width: 100%; overflow: hidden; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg-body);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
 }
 
-function MapClickHandler({ active, onClick }) {
-  useMapEvents({ click(e) { if (active) onClick(e); } });
-  return null;
+/* App Container */
+.container { display: flex; flex-direction: column; height: 100dvh; width: 100vw; position: relative; }
+
+/* Futuristic Header */
+header { 
+  position: absolute; top: 0; left: 0; right: 0; padding: 20px; z-index: 1000; 
+  display: flex; justify-content: space-between; align-items: flex-start;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); pointer-events: none;
+}
+header > * { pointer-events: auto; }
+.header-title { font-size: 18px; font-weight: 800; letter-spacing: 2px; color: white; text-shadow: 0 0 10px var(--border-glow); }
+.header-subtitle { font-size: 10px; color: var(--brand-cyan); text-transform: uppercase; letter-spacing: 3px; margin-top: 4px; }
+
+/* Map Area */
+.map-container-wrapper { flex: 1; position: relative; background: #000; }
+.leaflet-container { background: #000 !important; }
+
+/* Floating Map Elements */
+.floating-search {
+  position: absolute; top: 70px; left: 50%; transform: translateX(-50%);
+  width: 90%; max-width: 400px; z-index: 1000;
+  background: var(--bg-panel); backdrop-filter: blur(15px);
+  border: 1px solid var(--border-glow); border-radius: 30px;
+  box-shadow: 0 0 20px rgba(0, 229, 255, 0.1); display: flex; align-items: center; padding: 0 15px;
+}
+.floating-search input { background: transparent; border: none; color: white; padding: 15px; font-size: 14px; outline: none; flex: 1; }
+
+.floating-toolbar {
+  position: absolute; top: 130px; right: 15px; z-index: 1000;
+  display: flex; flex-direction: column; gap: 15px;
+}
+.tool-btn {
+  width: 50px; height: 50px; border-radius: 50%;
+  background: var(--bg-panel); backdrop-filter: blur(15px);
+  border: 1px solid var(--border-glow); color: white; font-size: 20px;
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  box-shadow: 0 0 15px rgba(0, 229, 255, 0.1); transition: 0.2s;
+}
+.tool-btn:hover, .tool-btn.active { border-color: var(--brand-cyan); box-shadow: 0 0 20px var(--border-glow); color: var(--brand-cyan); }
+
+/* Bottom Map Controls */
+.map-bottom-controls {
+  position: absolute; bottom: 20px; left: 20px; right: 20px; z-index: 1000;
+  display: flex; flex-direction: column; gap: 15px;
+}
+.scale-pill {
+  align-self: flex-start; background: var(--bg-panel); backdrop-filter: blur(10px);
+  padding: 8px 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1);
+  font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 8px;
+}
+.scale-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 10px var(--success); }
+
+.btn-draw-main {
+  background: linear-gradient(135deg, rgba(26, 91, 130, 0.8), rgba(0, 229, 255, 0.2));
+  border: 1px solid var(--brand-cyan); border-radius: 16px;
+  color: white; font-size: 20px; font-weight: 800; padding: 20px;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  box-shadow: 0 0 30px rgba(0, 229, 255, 0.2), inset 0 0 20px rgba(0, 229, 255, 0.1);
+  cursor: pointer; text-transform: uppercase; letter-spacing: 1px;
+}
+.btn-draw-main:hover { box-shadow: 0 0 40px rgba(0, 229, 255, 0.4); }
+
+/* Results Bottom Sheet (HUD) */
+.hud-sheet {
+  position: absolute; top: 20vh; left: 0; right: 0; bottom: 0; z-index: 2000;
+  background: var(--bg-body); border-top-left-radius: 30px; border-top-right-radius: 30px;
+  box-shadow: 0 -10px 40px rgba(0,0,0,0.8); border-top: 1px solid var(--brand-cyan);
+  display: flex; flex-direction: column; overflow: hidden; transition: transform 0.3s ease-out;
+}
+.hud-scroll-area { flex: 1; overflow-y: auto; padding: 25px; padding-bottom: 100px; }
+
+.hud-header { margin-bottom: 20px; }
+.hud-tag { color: var(--brand-cyan); font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; }
+.hud-title { font-size: 28px; font-weight: 800; margin: 5px 0; }
+.hud-badges { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+.hud-badge { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; }
+
+/* Big Data Grid */
+.data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px; }
+.data-card {
+  background: linear-gradient(180deg, rgba(26, 91, 130, 0.1) 0%, rgba(10, 15, 25, 0.5) 100%);
+  border: 1px solid rgba(0, 229, 255, 0.2); border-radius: 16px; padding: 20px;
+  box-shadow: inset 0 0 20px rgba(0, 229, 255, 0.05);
+}
+.data-label { font-size: 11px; color: var(--text-sub); text-transform: uppercase; letter-spacing: 1px; font-weight: 700; }
+.data-value { font-size: 42px; font-weight: 800; margin-top: 5px; line-height: 1; text-shadow: 0 0 20px rgba(255,255,255,0.2); }
+.data-sub { font-size: 12px; color: var(--text-sub); margin-top: 5px; }
+
+/* Trims Grid */
+.trims-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.trim-card {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 5px;
+}
+.trim-title { font-size: 11px; color: var(--text-sub); display: flex; align-items: center; gap: 6px; }
+.trim-title::before { content: ''; display: block; width: 12px; height: 2px; background: var(--brand-cyan); }
+.trim-val { font-size: 22px; font-weight: 700; }
+
+/* Bottom Sticky Bar */
+.hud-bottom-bar {
+  position: absolute; bottom: 0; left: 0; right: 0; padding: 15px 20px;
+  background: rgba(5, 8, 14, 0.95); backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(255,255,255,0.1); display: flex; gap: 10px;
+}
+.btn-icon { background: transparent; color: white; border: none; font-size: 12px; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; flex: 1; }
+.btn-icon span { font-size: 18px; }
+.btn-primary-hud {
+  flex: 2; background: var(--brand-cyan); color: #000; font-weight: 800;
+  border-radius: 12px; border: none; font-size: 16px; cursor: pointer;
+  box-shadow: 0 0 20px var(--border-glow);
 }
 
-export default function App() {
-  const [mapMode, setMapMode] = useState('draw');
-  const [viewMode, setViewMode] = useState('2d');
-  const [showResults, setShowResults] = useState(false);
-  
-  const [pitch, setPitch] = useState(30);
-  const [width, setWidth] = useState(760);
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [drawnCoords, setDrawnCoords] = useState(null);
-  const [exteriorMeters, setExteriorMeters] = useState(null);
-  const [mapCenter, setMapCenter] = useState([-27.5598, 151.9507]); // Toowoomba default
-  
-  const [showSettings, setShowSettings] = useState(false);
-  const [jobAddress, setJobAddress] = useState("");
-  const [isCalibrating, setIsCalibrating] = useState(false);
-  const [calibrationPoints, setCalibrationPoints] = useState([]);
-  const [realWorldLength, setRealWorldLength] = useState("");
-  const [scaleFactor, setScaleFactor] = useState(1);
-  
-  const [settings, setSettings] = useState({
-    companyName: "Mitchell's Metal Roofing", abn: "0435 918 594",
-    metalCostPerMeter: 15.00, laborRatePerSheet: 45.00, markupPercentage: 20.0, taxPercentage: 10.0, overhangMm: 150
-  });
+/* Modals */
+.modal-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.modal-card { background: var(--bg-panel); border: 1px solid var(--border-glow); border-radius: 20px; padding: 25px; width: 100%; max-width: 500px; }
+.modal-card h3 { margin-bottom: 20px; font-size: 20px; }
+.input-group { margin-bottom: 15px; }
+.input-group label { display: block; font-size: 12px; color: var(--text-sub); margin-bottom: 5px; text-transform: uppercase; }
+.input-group input { width: 100%; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 12px; border-radius: 8px; font-size: 16px; }
 
-  useEffect(() => {
-    const savedSettings = localStorage.getItem('sheetSetSettings');
-    if (savedSettings) { try { setSettings({ ...settings, ...JSON.parse(savedSettings) }); } catch (e) {} }
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition((pos) => setMapCenter([pos.coords.latitude, pos.coords.longitude]));
-    }
-  }, []);
-
-  const handleMapClick = (e) => {
-    if (!isCalibrating) return;
-    if (calibrationPoints.length >= 2) setCalibrationPoints([e.latlng]); 
-    else setCalibrationPoints([...calibrationPoints, e.latlng]);
-  };
-
-  const applyCalibration = () => {
-    if (calibrationPoints.length !== 2 || !realWorldLength) return;
-    const p1 = calibrationPoints[0], p2 = calibrationPoints[1];
-    const metersArray = latLngToMeters([p1, p2], false);
-    const distInMeters = Math.hypot(metersArray[1][0], metersArray[1][1]);
-    if (distInMeters <= 0) return;
-    setScaleFactor(parseFloat(realWorldLength) / distInMeters);
-    setIsCalibrating(false); setMapMode('draw'); setCalibrationPoints([]); setRealWorldLength("");
-  };
-
-  const latLngToMeters = (latLngs, applyScale = true) => {
-    const origin = latLngs[0], R = 6371000; 
-    return latLngs.map((ll, index) => {
-      const dLat = (ll.lat - origin.lat) * Math.PI / 180, dLng = (ll.lng - origin.lng) * Math.PI / 180;
-      let x = dLng * R * Math.cos(origin.lat * Math.PI / 180), y = dLat * R;
-      if (applyScale && scaleFactor !== 1) { x = x * scaleFactor; y = y * scaleFactor; }
-      return [index === 0 ? 0 : x, index === 0 ? 0 : y];
-    });
-  };
-
-  const onCreated = (e) => setDrawnCoords(e.layer.getLatLngs()[0].map(ll => ({ lat: ll.lat, lng: ll.lng })));
-  const onEdited = (e) => e.layers.eachLayer((layer) => setDrawnCoords(layer.getLatLngs()[0].map(ll => ({ lat: ll.lat, lng: ll.lng }))));
-  const onDeleted = () => { setDrawnCoords(null); setExteriorMeters(null); setResult(null); };
-
-  const calculateRoof = async () => {
-    if (!drawnCoords) return;
-    setLoading(true); setResult(null);
-    const extMeters = latLngToMeters(drawnCoords, true);
-    setExteriorMeters(extMeters);
-
-    try {
-      const response = await axios.post(API_URL + "/calculate", { 
-        exterior: extMeters, pitch_deg: pitch, sheet_width_mm: width, overhang_mm: parseFloat(settings.overhangMm) 
-      });
-      setResult(response.data);
-      setShowResults(true);
-    } catch (err) { alert("Calculation failed. Backend might be asleep."); }
-    setLoading(false);
-  };
-
-  let svgViewBox = "0 0 100 100";
-  if (exteriorMeters && exteriorMeters.length > 0) {
-    const xs = exteriorMeters.map(p => p[0]), ys = exteriorMeters.map(p => p[1]);
-    svgViewBox = (Math.min(...xs) - 2) + " " + (Math.min(...ys) - 2) + " " + (Math.max(...xs) - Math.min(...xs) + 4) + " " + (Math.max(...ys) - Math.min(...ys) + 4);
-  }
-
-  return (
-    <div className="container">
-      
-      {/* HEADER OVERLAY */}
-      <header>
-        <div>
-          <h1 className="header-title">SHEET SET</h1>
-          <p className="header-subtitle">MITCHELL'S METAL ROOFING</p>
-        </div>
-        <button className="tool-btn" onClick={() => setShowSettings(true)}>⚙️</button>
-      </header>
-
-      {/* SETTINGS MODAL */}
-      {showSettings && (
-        <div className="modal-overlay">
-          <div className="modal-card">
-            <h3>Settings</h3>
-            <div className="input-group"><label>Company Name</label><input type="text" value={settings.companyName} onChange={e => setSettings({...settings, companyName: e.target.value})} /></div>
-            <div className="input-group"><label>Phone</label><input type="text" value={settings.abn} onChange={e => setSettings({...settings, abn: e.target.value})} /></div>
-            <button className="btn-primary-hud" style={{ padding: '15px', width: '100%', marginTop: '10px' }} onClick={() => { localStorage.setItem('sheetSetSettings', JSON.stringify(settings)); setShowSettings(false); }}>Save</button>
-            <button className="btn-icon" style={{ color: 'var(--text-sub)', width: '100%', marginTop: '10px' }} onClick={() => setShowSettings(false)}>Cancel</button>
-          </div>
-        </div>
-      )}
-
-      {/* MAP VIEW */}
-      <div className="map-container-wrapper">
-        <MapContainer center={mapCenter} zoom={19} style={{ height: '100%', width: '100%' }}>
-          <TileLayer url="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}" maxZoom={22} maxNativeZoom={20} />
-          <SearchControl />
-          <LocateControl />
-          <MapClickHandler active={isCalibrating} onClick={handleMapClick} />
-
-          {isCalibrating && (
-            <>
-              {calibrationPoints.map((pt, i) => <Marker key={i} position={pt} />)}
-              {calibrationPoints.length === 2 && <Polyline positions={calibrationPoints} color="#00E5FF" />}
-            </>
-          )}
-
-          {!isCalibrating && !showResults && (
-            <FeatureGroup>
-              <EditControl 
-                position="topright" 
-                onCreated={onCreated} 
-                onEdited={onEdited} 
-                onDeleted={onDeleted} 
-                draw={{ 
-                  rectangle: false, circle: false, circlemarker: false, polyline: false, marker: false, 
-                  polygon: { allowIntersection: false, shapeOptions: { color: '#00E5FF', weight: 3 } }
-                }} 
-              />
-            </FeatureGroup>
-          )}
-        </MapContainer>
-
-        {/* FLOATING TOOLBAR */}
-        <div className="floating-toolbar">
-          <button className={`tool-btn ${mapMode === 'draw' ? 'active' : ''}`} onClick={() => { setMapMode('draw'); setIsCalibrating(false); }}>📐</button>
-          <button className={`tool-btn ${mapMode === 'calibrate' ? 'active' : ''}`} onClick={() => { setMapMode('calibrate'); setIsCalibrating(true); setCalibrationPoints([]); }}>📏</button>
-        </div>
-
-        {/* BOTTOM MAP CONTROLS */}
-        {!showResults && (
-          <div className="map-bottom-controls">
-            {mapMode === 'calibrate' && (
-              <div className="scale-pill" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '10px' }}>
-                <span>Enter Real Length:</span>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <input type="number" placeholder="Meters" value={realWorldLength} onChange={e => setRealWorldLength(e.target.value)} style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', padding: '5px', borderRadius: '4px', width: '80px' }} />
-                  <button style={{ background: 'var(--brand-cyan)', color: '#000', border: 'none', padding: '5px 10px', borderRadius: '4px', fontWeight: 'bold' }} onClick={applyCalibration}>Apply</button>
-                </div>
-              </div>
-            )}
-            
-            <div className="scale-pill">
-              <span className="dot"></span> Scale calibrated · ±2 cm
-            </div>
-
-            {mapMode === 'draw' ? (
-              <button className="btn-draw-main" onClick={calculateRoof} disabled={loading || !drawnCoords}>
-                {loading ? "ANALYZING..." : "☑️ Calculate Roof"}
-              </button>
-            ) : (
-              <button className="btn-draw-main" style={{ borderColor: 'var(--text-sub)', color: 'var(--text-sub)' }} onClick={() => { setMapMode('draw'); setIsCalibrating(false); }}>
-                Cancel Calibration
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* HUD RESULTS SHEET */}
-      {showResults && result && exteriorMeters && (
-        <div className="hud-sheet">
-          <div className="hud-scroll-area">
-            
-            <div className="hud-header">
-              <div className="hud-tag">TOTAL SHEETS</div>
-              <h2 className="hud-title">Hip roof · L-shape</h2>
-              <p style={{ color: 'var(--text-sub)', fontSize: '12px' }}>27 Banksia Cres, Toowoomba QLD</p>
-              
-              <div className="hud-badges">
-                <div className="hud-badge">{pitch}° pitch</div>
-                <div className="hud-badge">{width} mm cover</div>
-                <div className="hud-badge">{settings.overhangMm} mm overhang</div>
-              </div>
-            </div>
-
-            <div className="data-grid">
-              <div className="data-card">
-                <div className="data-label">TOTAL SHEETS</div>
-                <div className="data-value">{result.sheets.length}</div>
-              </div>
-              <div className="data-card">
-                <div className="data-label">ROOF AREA</div>
-                <div className="data-value">{result.roof_area_m2.toFixed(1)}<span style={{fontSize:'18px'}}> m²</span></div>
-              </div>
-              <div className="data-card">
-                <div className="data-label">LINEAR COIL</div>
-                <div className="data-value">{result.summary.match(/Ordered: ([\d.]+)m/)?.[1] || 0}<span style={{fontSize:'18px'}}> m</span></div>
-              </div>
-              <div className="data-card">
-                <div className="data-label">WASTE</div>
-                <div className="data-value">{result.total_waste_pct.toFixed(1)}<span style={{fontSize:'18px'}}> %</span></div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-              <h3 style={{ fontSize: '16px' }}>Measurement</h3>
-              <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', padding: '3px' }}>
-                <button style={{ padding: '5px 15px', background: viewMode === '2d' ? 'var(--brand-cyan)' : 'transparent', color: viewMode === '2d' ? '#000' : '#fff', border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }} onClick={() => setViewMode('2d')}>2D</button>
-                <button style={{ padding: '5px 15px', background: viewMode === '3d' ? 'var(--brand-cyan)' : 'transparent', color: viewMode === '3d' ? '#000' : '#fff', border: 'none', borderRadius: '5px', fontWeight: 'bold', cursor: 'pointer' }} onClick={() => setViewMode('3d')}>3D</button>
-              </div>
-            </div>
-
-            <div style={{ background: 'rgba(0,0,0,0.4)', borderRadius: '16px', padding: '15px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '25px' }}>
-              {viewMode === '2d' ? (
-                <svg viewBox={svgViewBox} width="100%" height="200" style={{display: 'block'}}>
-                  <polygon points={exteriorMeters.map(p => p[0] + "," + p[1]).join(' ')} fill="rgba(0, 229, 255, 0.05)" stroke="#00E5FF" strokeWidth="0.3" />
-                  {result.sheets?.map((sheet, i) => (<line key={i} x1={sheet.start[0]} y1={sheet.start[1]} x2={sheet.end[0]} y2={sheet.end[1]} stroke="rgba(255,255,255,0.4)" strokeWidth="0.1" />))}
-                </svg>
-              ) : (
-                <div style={{ height: '200px', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                  {result.mesh_vertices ? (
-                    <Canvas camera={{ position: [20, 20, 20], fov: 50 }}>
-                      <ambientLight intensity={0.5} />
-                      <directionalLight position={[10, 10, 10]} intensity={1} />
-                      <RoofMesh vertices={result.mesh_vertices} faces={result.mesh_faces} />
-                      <OrbitControls />
-                    </Canvas>
-                  ) : <p style={{ color: 'var(--text-sub)' }}>Update backend for 3D</p>}
-                </div>
-              )}
-            </div>
-
-            <h3 style={{ fontSize: '16px', marginBottom: '15px' }}>Trims & Flashings</h3>
-            <div className="trims-grid">
-              <div className="trim-card">
-                <div className="trim-title">Ridge capping</div>
-                <div className="trim-val">{result.trims?.ridge_capping_m || 0} m</div>
-              </div>
-              <div className="trim-card">
-                <div className="trim-title">Hip capping</div>
-                <div className="trim-val">{result.trims?.hip_capping_m || 0} m</div>
-              </div>
-              <div className="trim-card">
-                <div className="trim-title">Valley capping</div>
-                <div className="trim-val">{result.trims?.valley_capping_m || 0} m</div>
-              </div>
-              <div className="trim-card">
-                <div className="trim-title">Eaves / gutter</div>
-                <div className="trim-val">{result.trims?.eaves_gutter_m || 0} m</div>
-              </div>
-            </div>
-
-          </div>
-
-          {/* STICKY BOTTOM BAR */}
-          <div className="hud-bottom-bar">
-            <button className="btn-icon" onClick={() => {
-              const blob = new Blob([result.csv_data], { type: 'text/csv' });
-              const url = window.URL.createObjectURL(blob);
-              const a = document.createElement('a'); a.href = url; a.download = 'cut_list.csv'; a.click();
-            }}><span>📥</span>CSV</button>
-            <button className="btn-icon"><span>💾</span>Save</button>
-            <button className="btn-icon"><span>🔗</span>Share</button>
-            <button className="btn-primary-hud" onClick={() => setShowResults(false)}>Results</button>
-          </div>
-        </div>
-      )}
-
-    </div>
-  );
-      }
+/* Hide default Leaflet Draw styling */
+.leaflet-draw { display: none !important; }
