@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { MapContainer, TileLayer, FeatureGroup, useMap, Marker, Polyline, useMapEvents } from 'react-leaflet';
 import { EditControl } from 'marwan-yasser-react-leaflet-draw';
@@ -9,29 +9,9 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
+import RoofMesh from './RoofMesh'; // <--- IMPORTING THE NEW FILE
 
 const API_URL = import.meta.env.VITE_API_URL || "https://sheet-set-backend.onrender.com"; 
-
-const RoofMesh = ({ vertices, faces }) => {
-  const geometry = useMemo(() => {
-    if (!vertices || !faces) return null;
-    const triangles = [];
-    faces.forEach(face => {
-      for (let i = 1; i < face.length - 1; i++) triangles.push([face[0], face[i], face[i+1]]);
-    });
-    return { positions: new Float32Array(vertices.flat()), indices: new Uint32Array(triangles.flat()) };
-  }, [vertices, faces]);
-  if (!geometry) return null;
-  return (
-    <mesh>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" count={geometry.positions.length / 3} array={geometry.positions} itemSize={3} />
-        <bufferAttribute attach="index" count={geometry.indices.length} array={geometry.indices} itemSize={1} />
-      </bufferGeometry>
-      <meshStandardMaterial color="#00E5FF" emissive="#003344" side={2} flatShading={true} metalness={0.8} roughness={0.2} />
-    </mesh>
-  );
-};
 
 function SearchControl() {
   const map = useMap();
@@ -139,13 +119,11 @@ export default function App() {
 
   const calculateRoof = async () => {
     let extMeters = [];
-
     if (inputMode === 'map') {
       if (!drawnCoords) return;
       extMeters = latLngToMeters(drawnCoords, true);
     } else {
-      const w = parseFloat(manualWidth);
-      const l = parseFloat(manualLength);
+      const w = parseFloat(manualWidth), l = parseFloat(manualLength);
       if (isNaN(w) || isNaN(l) || w <= 0 || l <= 0) return alert("Please enter valid dimensions");
       extMeters = [[0,0], [w,0], [w,l], [0,l]];
     }
@@ -200,15 +178,9 @@ export default function App() {
           {!isCalibrating && !showResults && (
             <FeatureGroup>
               <EditControl 
-                position="topright" 
-                onCreated={onCreated} 
-                onEdited={onEdited} 
-                onDeleted={onDeleted} 
+                position="topright" onCreated={onCreated} onEdited={onEdited} onDeleted={onDeleted} 
                 onMounted={(control) => drawControlRef.current = control}
-                draw={{ 
-                  rectangle: false, circle: false, circlemarker: false, polyline: false, marker: false, 
-                  polygon: { allowIntersection: false, shapeOptions: { color: '#00E5FF', weight: 3 } }
-                }} 
+                draw={{ rectangle: false, circle: false, circlemarker: false, polyline: false, marker: false, polygon: { allowIntersection: false, shapeOptions: { color: '#00E5FF', weight: 3 } } }} 
               />
             </FeatureGroup>
           )}
@@ -244,12 +216,8 @@ export default function App() {
           ) : inputMode === 'map' ? (
             <>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div className="scale-pill">
-                  <span className="dot"></span> {scaleFactor === 1 ? 'Standard Scale' : 'Scale Calibrated'}
-                </div>
-                <button style={{ background: 'transparent', color: 'var(--text-sub)', border: 'none', fontSize: '12px', textDecoration: 'underline' }} onClick={() => { setMapMode('calibrate'); setIsCalibrating(true); setCalibrationPoints([]); }}>
-                  Calibrate Map
-                </button>
+                <div className="scale-pill"><span className="dot"></span> {scaleFactor === 1 ? 'Standard Scale' : 'Scale Calibrated'}</div>
+                <button style={{ background: 'transparent', color: 'var(--text-sub)', border: 'none', fontSize: '12px', textDecoration: 'underline' }} onClick={() => { setMapMode('calibrate'); setIsCalibrating(true); setCalibrationPoints([]); }}>Calibrate Map</button>
               </div>
               
               <div className="input-row">
@@ -364,4 +332,24 @@ export default function App() {
                 <div style={{ height: '200px', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                   {result.mesh_vertices ? (
                     <Canvas camera={{ position: [20, 20, 20], fov: 50 }}>
-               
+                      <ambientLight intensity={0.5} />
+                      <directionalLight position={[10, 10, 10]} intensity={1} />
+                      <RoofMesh vertices={result.mesh_vertices} faces={result.mesh_faces} />
+                      <OrbitControls />
+                    </Canvas>
+                  ) : <p style={{ color: 'var(--text-sub)' }}>Update backend for 3D</p>}
+                </div>
+              )}
+            </div>
+
+            <h3 style={{ fontSize: '16px', marginBottom: '15px' }}>Trims & Flashings</h3>
+            <div className="trims-grid">
+              <div className="trim-card">
+                <div className="trim-title">Ridge capping</div>
+                <div className="trim-val">{(result.trims && result.trims.ridge_capping_m) || 0} m</div>
+              </div>
+              <div className="trim-card">
+                <div className="trim-title">Hip capping</div>
+                <div className="trim-val">{(result.trims && result.trims.hip_capping_m) || 0} m</div>
+              </div>
+             
