@@ -43,7 +43,7 @@ function AppLayout() {
           </Routes>
         </div>
 
-        {/* Estimator is ALWAYS mounted, just hidden. This prevents the Leaflet map from breaking. */}
+        {/* Estimator is ALWAYS mounted, just hidden. */}
         <div style={{ 
           display: isEstimator ? 'block' : 'none', 
           position: 'absolute', 
