@@ -385,3 +385,21 @@ input[type="range"] { width: 100%; accent-color: var(--silver-mid); }
 .page-content > * {
   animation: fadeIn 0.25s ease-out;
 }
+
+/* =========================================
+   SCALE BAR FIX (TOP LEFT)
+   ========================================= */
+.leaflet-control-scale-line {
+  background: rgba(40, 48, 48, 0.85) !important;
+  border: 1px solid #405860 !important;
+  color: #E8E8E8 !important;
+  font-family: 'Inter', sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  backdrop-filter: blur(4px);
+  padding: 4px 8px !important;
+  border-radius: 4px;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  margin-left: 15px !important;
+  margin-top: 65px !important; /* Pushes it down below the search bar */
+   }
