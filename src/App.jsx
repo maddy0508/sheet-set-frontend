@@ -41,8 +41,12 @@ function LocateControl() {
   return null;
 }
 
-function MapClickHandler({ active, onClick }) {
-  useMapEvents({ click(e) { if (active) onClick(e); } });
+function MapClickHandler({ activeTool, onClick }) {
+  useMapEvents({ 
+    click(e) { 
+      if (activeTool === 'auto' || activeTool === 'calibrate') onClick(e); 
+    } 
+  });
   return null;
 }
 
@@ -52,8 +56,7 @@ export default function App() {
   const [viewMode, setViewMode] = useState('2d');
   const [showResults, setShowResults] = useState(false);
   
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [isAutoOutlining, setIsAutoOutlining] = useState(false);
+  const [activeTool, setActiveTool] = useState('none'); 
   
   const [pitch, setPitch] = useState(30);
   const [width, setWidth] = useState(760);
@@ -67,7 +70,6 @@ export default function App() {
   const [mapCenter, setMapCenter] = useState([-27.5598, 151.9507]);
   
   const [showSettings, setShowSettings] = useState(false);
-  const [isCalibrating, setIsCalibrating] = useState(false);
   const [calibrationPoints, setCalibrationPoints] = useState([]);
   const [realWorldLength, setRealWorldLength] = useState("");
   const [scaleFactor, setScaleFactor] = useState(1);
@@ -86,14 +88,19 @@ export default function App() {
   }, []);
 
   const handleMapClick = (e) => {
-    if (!isCalibrating) return;
-    if (calibrationPoints.length >= 2) setCalibrationPoints([e.latlng]);
-    else setCalibrationPoints([...calibrationPoints, e.latlng]);
+    if (activeTool === 'calibrate') {
+      if (calibrationPoints.length === 2) {
+        setCalibrationPoints([calibrationPoints[0], e.latlng]); // Replace second point
+      } else {
+        setCalibrationPoints([...calibrationPoints, e.latlng]);
+      }
+    } else if (activeTool === 'auto') {
+      handleAutoOutlineClick(e);
+    }
   };
 
   const handleAutoOutlineClick = async (e) => {
-    if (!isAutoOutlining) return;
-    setIsAutoOutlining(false);
+    setActiveTool('none');
     setLoading(true);
     try {
       const res = await axios.get(`${API_URL}/get-footprint?lat=${e.latlng.lat}&lng=${e.latlng.lng}`);
@@ -106,7 +113,7 @@ export default function App() {
         onCreated({ layer: polygon });
       }
     } catch (err) {
-      alert("Failed to fetch footprint. Backend might be asleep.");
+      alert("Failed to fetch footprint. Check backend connection.");
     }
     setLoading(false);
   };
@@ -118,7 +125,7 @@ export default function App() {
     const distInMeters = Math.hypot(metersArray[1][0], metersArray[1][1]);
     if (distInMeters <= 0) return;
     setScaleFactor(parseFloat(realWorldLength) / distInMeters);
-    setIsCalibrating(false); setMapMode('draw'); setCalibrationPoints([]); setRealWorldLength("");
+    setActiveTool('none'); setMapMode('draw'); setCalibrationPoints([]); setRealWorldLength("");
   };
 
   const latLngToMeters = (latLngs, applyScale = true) => {
@@ -133,11 +140,19 @@ export default function App() {
 
   const onCreated = (e) => {
     setDrawnCoords(e.layer.getLatLngs()[0].map(ll => ({ lat: ll.lat, lng: ll.lng })));
-    setIsDrawing(false);
+    setActiveTool('none');
   };
 
   const onEdited = (e) => e.layers.eachLayer((layer) => setDrawnCoords(layer.getLatLngs()[0].map(ll => ({ lat: ll.lat, lng: ll.lng }))));
-  const onDeleted = () => { setDrawnCoords(null); setExteriorMeters(null); setResult(null); setIsDrawing(false); };
+  const onDeleted = () => { setDrawnCoords(null); setExteriorMeters(null); setResult(null); setActiveTool('none'); };
+
+  const getFriendlyError = (err) => {
+    const raw = err.response?.data?.detail || err.message || "";
+    if (raw.includes("POLYGONIZATION_FAILED")) return "Your shape crosses over itself or has a gap. Please delete it and try tracing again.";
+    if (raw.includes("CGAL_SKELETON_FAILED")) return "This roof shape is too complex for our engine right now. Try simplifying the corners.";
+    if (raw.includes("Network Error")) return "Cannot connect to the calculation engine. Please check your connection and try again.";
+    return raw;
+  };
 
   const calculateRoof = async () => {
     let extMeters = [];
@@ -158,16 +173,53 @@ export default function App() {
       });
       setResult(response.data); setShowResults(true);
     } catch (err) {
-      console.error("Full Error:", err);
-      const exactError = err.response?.data?.detail || err.message || JSON.stringify(err);
-      alert("Backend Error: " + exactError);
+      alert("Calculation Failed:\n\n" + getFriendlyError(err));
     }
     setLoading(false);
   };
 
-  const startDrawing = () => { if (drawControlRef.current) { drawControlRef.current._toolbars.draw._modes.polygon.handler.enable(); setIsDrawing(true); } };
-  const startEditing = () => { if (drawControlRef.current) { drawControlRef.current._toolbars.edit._modes.edit.handler.enable(); alert("Tap the shape to show the drag handles, then move the corners."); } };
-  const deleteShape = () => { if (drawControlRef.current) { drawControlRef.current._toolbars.edit._modes.remove.handler.enable(); setIsDrawing(false); } };
+  const activateTool = (tool) => {
+    setActiveTool(tool);
+    if (drawControlRef.current) {
+      drawControlRef.current._toolbars.draw._modes.polygon.handler.disable();
+      drawControlRef.current._toolbars.edit._modes.edit.handler.disable();
+      drawControlRef.current._toolbars.edit._modes.remove.handler.disable();
+    }
+    if (tool === 'draw') drawControlRef.current._toolbars.draw._modes.polygon.handler.enable();
+    else if (tool === 'edit') {
+      drawControlRef.current._toolbars.edit._modes.edit.handler.enable();
+      alert("Tap the shape to show the drag handles, then move the corners.");
+    }
+    else if (tool === 'delete') drawControlRef.current._toolbars.edit._modes.remove.handler.enable();
+  };
+
+  const getWasteBadge = (waste) => {
+    if (waste < 5) return <span style={{ color: '#00E676', fontSize: '12px' }}>Excellent ✅</span>;
+    if (waste <= 10) return <span style={{ color: '#ffcc00', fontSize: '12px' }}>Normal 🟡</span>;
+    return <span style={{ color: '#ff4444', fontSize: '12px' }}>High ⚠️</span>;
+  };
+
+  const saveJob = () => {
+    if (!result) return;
+    const name = prompt("Enter a name for this job:", "Job " + new Date().toLocaleDateString());
+    if (!name) return;
+    const saved = JSON.parse(localStorage.getItem('sheetSetJobs') || '[]');
+    saved.push({ name, result, exteriorMeters, pitch, width, settings });
+    localStorage.setItem('sheetSetJobs', JSON.stringify(saved));
+    alert("Job saved locally to this browser.");
+  };
+
+  const shareJob = () => {
+    if (!result) return;
+    const data = { result, exteriorMeters };
+    const encoded = btoa(JSON.stringify(data));
+    const url = `${window.location.origin}${window.location.pathname}?job=${encoded}`;
+    navigator.clipboard.writeText(url).then(() => {
+      alert("Share link copied to clipboard! (Note: Paste this in a new tab to view)");
+    }).catch(() => {
+      prompt("Copy this share link:", url);
+    });
+  };
 
   let svgViewBox = "0 0 100 100";
   if (exteriorMeters && exteriorMeters.length > 0) {
@@ -187,29 +239,16 @@ export default function App() {
 
       <div className="map-container-wrapper" style={{ opacity: inputMode === 'manual' ? 0.3 : 1, pointerEvents: inputMode === 'manual' ? 'none' : 'auto' }}>
         <MapContainer center={mapCenter} zoom={19} style={{ height: '100%', width: '100%' }}>
-          
-          {/* ESRI WORLD IMAGERY TILES (FREE, NO API KEY) */}
-          <TileLayer 
-            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-            attribution='Tiles &copy; Esri'
-            maxZoom={19} 
-            maxNativeZoom={18}
-          />
-          
+          <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" attribution='Tiles &copy; Esri' maxZoom={19} maxNativeZoom={18} />
           <SearchControl /> <LocateControl /> 
+          <MapClickHandler activeTool={activeTool} onClick={handleMapClick} />
           
-          <MapClickHandler active={isCalibrating} onClick={handleMapClick} />
-          <MapClickHandler active={isAutoOutlining} onClick={handleAutoOutlineClick} />
+          {activeTool === 'calibrate' && (<>{calibrationPoints.map((pt, i) => <Marker key={i} position={pt} />)}{calibrationPoints.length === 2 && <Polyline positions={calibrationPoints} color="#00E5FF" />}</>)}
           
-          {isCalibrating && (<>{calibrationPoints.map((pt, i) => <Marker key={i} position={pt} />)}{calibrationPoints.length === 2 && <Polyline positions={calibrationPoints} color="#00E5FF" />}</>)}
-          
-          {!isCalibrating && !showResults && (
+          {!showResults && (
             <FeatureGroup ref={featureGroupRef}>
               <EditControl 
-                position="topright" 
-                onCreated={onCreated} 
-                onEdited={onEdited} 
-                onDeleted={onDeleted} 
+                position="topright" onCreated={onCreated} onEdited={onEdited} onDeleted={onDeleted} 
                 onMounted={(control) => drawControlRef.current = control} 
                 draw={{ rectangle: false, circle: false, circlemarker: false, polyline: false, marker: false, polygon: { allowIntersection: false, shapeOptions: { color: '#00E5FF', weight: 3 } } }} 
               />
@@ -217,17 +256,12 @@ export default function App() {
           )}
         </MapContainer>
 
-        {!isCalibrating && !showResults && inputMode === 'map' && (
+        {!showResults && inputMode === 'map' && (
           <div className="floating-toolbar">
-            {isDrawing ? (
-              <button className="tool-btn" onClick={() => drawControlRef.current._toolbars.draw._modes.polygon.handler.deleteLastVertex()} style={{ color: '#ffcc00', borderColor: 'rgba(255,204,0,0.5)' }} title="Undo Last Point">↩️</button>
-            ) : (
-              <button className="tool-btn" onClick={startDrawing} title="Draw New Shape">⬡</button>
-            )}
-            <button className="tool-btn" onClick={startEditing} title="Edit Corners">✏️</button>
-            <button className="tool-btn" onClick={deleteShape} title="Delete Shape" style={{ color: '#ff4444', borderColor: 'rgba(255,68,68,0.3)' }}>🗑️</button>
-            
-            <button className={`tool-btn ${isAutoOutlining ? 'active' : ''}`} onClick={() => setIsAutoOutlining(!isAutoOutlining)} title="Auto-Outline Building" style={{ color: '#00E676', borderColor: 'rgba(0,230,118,0.3)' }}>⚡</button>
+            <button className={`tool-btn ${activeTool === 'draw' ? 'active' : ''}`} onClick={() => activateTool('draw')} title="Draw New Shape">⬡</button>
+            <button className={`tool-btn ${activeTool === 'edit' ? 'active' : ''}`} onClick={() => activateTool('edit')} title="Edit Corners">✏️</button>
+            <button className={`tool-btn ${activeTool === 'delete' ? 'active' : ''}`} onClick={() => activateTool('delete')} title="Delete Shape" style={{ color: '#ff4444', borderColor: 'rgba(255,68,68,0.3)' }}>🗑️</button>
+            <button className={`tool-btn ${activeTool === 'auto' ? 'active' : ''}`} onClick={() => activateTool('auto')} title="Auto-Outline Building" style={{ color: '#00E676', borderColor: 'rgba(0,230,118,0.3)' }}>⚡</button>
           </div>
         )}
       </div>
@@ -241,7 +275,7 @@ export default function App() {
             </div>
           )}
           
-          {mapMode === 'calibrate' ? (
+          {activeTool === 'calibrate' ? (
             <div className="scale-pill" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px', background: 'transparent', border: 'none' }}>
               <span style={{ color: 'var(--brand-cyan)', fontWeight: 'bold' }}>Enter Real Length (m):</span>
               <div style={{ display: 'flex', gap: '10px' }}>
@@ -253,7 +287,7 @@ export default function App() {
             <>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div className="scale-pill"><span className="dot"></span> {scaleFactor === 1 ? 'Standard Scale' : 'Scale Calibrated'}</div>
-                <button style={{ background: 'transparent', color: 'var(--text-sub)', border: 'none', fontSize: '12px', textDecoration: 'underline' }} onClick={() => { setMapMode('calibrate'); setIsCalibrating(true); setCalibrationPoints([]); }}>Calibrate Map</button>
+                <button style={{ background: 'transparent', color: 'var(--text-sub)', border: 'none', fontSize: '12px', textDecoration: 'underline' }} onClick={() => { setActiveTool('calibrate'); setCalibrationPoints([]); }}>Calibrate Map</button>
               </div>
               <div className="input-row">
                 <div className="input-group"><label>Pitch: {pitch}°</label><input type="range" min="10" max="60" value={pitch} onChange={e => setPitch(e.target.value)} /></div>
@@ -274,12 +308,16 @@ export default function App() {
             </div>
           )}
           
-          {mapMode === 'draw' ? (
-            <button className="btn-draw-main" onClick={calculateRoof} disabled={loading || (inputMode === 'map' && !drawnCoords)}>
+          {inputMode === 'map' && activeTool !== 'calibrate' ? (
+            <button className="btn-draw-main" onClick={calculateRoof} disabled={loading || !drawnCoords}>
               {loading ? "ANALYZING..." : "☑️ Calculate Roof"}
             </button>
+          ) : activeTool === 'calibrate' ? (
+            <button className="btn-draw-main" style={{ borderColor: 'var(--text-sub)', color: 'var(--text-sub)' }} onClick={() => { setActiveTool('none'); setCalibrationPoints([]); }}>Cancel Calibration</button>
           ) : (
-            <button className="btn-draw-main" style={{ borderColor: 'var(--text-sub)', color: 'var(--text-sub)' }} onClick={() => { setMapMode('draw'); setIsCalibrating(false); }}>Cancel Calibration</button>
+             <button className="btn-draw-main" onClick={calculateRoof} disabled={loading}>
+              {loading ? "ANALYZING..." : "☑️ Calculate Roof"}
+            </button>
           )}
         </div>
       )}
@@ -300,7 +338,12 @@ export default function App() {
           <div className="hud-scroll-area">
             <div className="hud-header">
               <div className="hud-tag">TOTAL SHEETS</div>
-              <h2 className="hud-title">Hip roof · L-shape</h2>
+              
+              {/* FIX D4: Dynamic Roof Title */}
+              <h2 className="hud-title">
+                {result.total_faces === 2 ? 'Gable Roof' : result.total_faces === 4 ? 'Hip Roof' : 'Complex Roof'}
+              </h2>
+              
               <div className="hud-badges">
                 <div className="hud-badge">{pitch}° pitch</div>
                 <div className="hud-badge">{width} mm cover</div>
@@ -310,8 +353,19 @@ export default function App() {
             <div className="data-grid">
               <div className="data-card"><div className="data-label">TOTAL SHEETS</div><div className="data-value">{result.sheets?.length || 0}</div></div>
               <div className="data-card"><div className="data-label">ROOF AREA</div><div className="data-value">{(result.roof_area_m2 || 0).toFixed(1)}<span style={{fontSize:'18px'}}> m²</span></div></div>
-              <div className="data-card"><div className="data-label">LINEAR COIL</div><div className="data-value">{result.summary.match(/Ordered: ([\d.]+)m/)?.[1] || 0}<span style={{fontSize:'18px'}}> m</span></div></div>
-              <div className="data-card"><div className="data-label">WASTE</div><div className="data-value">{(result.total_waste_pct || 0).toFixed(1)}<span style={{fontSize:'18px'}}> %</span></div></div>
+              
+              {/* FIX B1: Linear Coil & Coil Count from Backend variables */}
+              <div className="data-card">
+                <div className="data-label">COILS / LINEAR</div>
+                <div className="data-value">{result.total_coils || 0} <span style={{fontSize:'18px'}}>coils</span></div>
+                <div style={{ fontSize: '12px', color: 'var(--text-sub)' }}>{(result.total_stock_m || 0).toFixed(1)} meters ordered</div>
+              </div>
+
+              <div className="data-card">
+                <div className="data-label">WASTE</div>
+                <div className="data-value">{(result.total_waste_pct || 0).toFixed(1)}<span style={{fontSize:'18px'}}> %</span></div>
+                <div style={{ marginTop: '4px' }}>{getWasteBadge(result.total_waste_pct)}</div>
+              </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
               <h3 style={{ fontSize: '16px' }}>Measurement</h3>
@@ -331,20 +385,34 @@ export default function App() {
             </div>
             <h3 style={{ fontSize: '16px', marginBottom: '15px' }}>Trims & Flashings</h3>
             <div className="trims-grid">
-              <div className="trim-card"><div className="trim-title">Ridge capping</div><div className="trim-val">{(result.trims && result.trims.ridge_capping_m) || 0} m</div></div>
-              <div className="trim-card"><div className="trim-title">Hip capping</div><div className="trim-val">{(result.trims && result.trims.hip_capping_m) || 0} m</div></div>
-              <div className="trim-card"><div className="trim-title">Valley capping</div><div className="trim-val">{(result.trims && result.trims.valley_capping_m) || 0} m</div></div>
-              <div className="trim-card"><div className="trim-title">Eaves / gutter</div><div className="trim-val">{(result.trims && result.trims.eaves_gutter_m) || 0} m</div></div>
+              <div className="trim-card">
+                <div className="trim-title">Ridge capping</div>
+                <div className="trim-val">{(result.trims && result.trims.ridge_capping_m) || 0} m</div>
+                <div style={{ fontSize: '10px', color: 'var(--text-sub)' }}>{(result.trims && result.trims.ridge_count) || 0} ridge</div>
+              </div>
+              <div className="trim-card">
+                <div className="trim-title">Hip capping</div>
+                <div className="trim-val">{(result.trims && result.trims.hip_capping_m) || 0} m</div>
+                <div style={{ fontSize: '10px', color: 'var(--text-sub)' }}>{(result.trims && result.trims.hip_count) || 0} hips</div>
+              </div>
+              <div className="trim-card">
+                <div className="trim-title">Valley capping</div>
+                <div className="trim-val">{(result.trims && result.trims.valley_capping_m) || 0} m</div>
+              </div>
+              <div className="trim-card">
+                <div className="trim-title">Eaves / gutter</div>
+                <div className="trim-val">{(result.trims && result.trims.eaves_gutter_m) || 0} m</div>
+              </div>
             </div>
           </div>
           <div className="hud-bottom-bar">
             <button className="btn-icon" onClick={() => { const blob = new Blob([result.csv_data], { type: 'text/csv' }); const url = window.URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'cut_list.csv'; a.click(); }}><span>📥</span>CSV</button>
-            <button className="btn-icon"><span>💾</span>Save</button>
-            <button className="btn-icon"><span>🔗</span>Share</button>
+            <button className="btn-icon" onClick={saveJob}><span>💾</span>Save</button>
+            <button className="btn-icon" onClick={shareJob}><span>🔗</span>Share</button>
             <button className="btn-primary-hud" onClick={() => setShowResults(false)}>Results</button>
           </div>
         </div>
       )}
     </div>
   );
-            }
+}
